@@ -5,19 +5,28 @@
 
     <meta charset="UTF-8">
 
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1.0">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
 
     <title>Projeto Alfa</title>
 
-    <!-- Arquivo de estilos -->
-    <link rel="stylesheet" href="css/style.css">
+    <!-- CSS -->
+    <link
+        rel="stylesheet"
+        href="css/style.css"
+    >
 
 </head>
 
+
 <body>
 
-    <!-- CABEÇALHO -->
+
+    <!-- ==============================
+         CABEÇALHO
+    =============================== -->
 
     <header>
 
@@ -30,109 +39,136 @@
     </header>
 
 
-    <!-- CONTEÚDO PRINCIPAL -->
+    <!-- ==============================
+         CONTEÚDO PRINCIPAL
+    =============================== -->
 
     <main class="container">
+
 
         <h2>Dashboard</h2>
 
         <p>
-            Central de estudos e acompanhamento do Projeto Alfa.
+            Central de estudos e acompanhamento
+            da preparação.
         </p>
 
 
-        <!-- MÓDULOS -->
+        <!-- ==============================
+             MÓDULOS
+        =============================== -->
 
         <section class="grid">
 
 
             <!-- EDITAL -->
 
-            <div class="card">
+            <button
+                class="card modulo"
+                onclick="abrirEdital()"
+            >
 
                 <h2>📖 Edital</h2>
 
                 <p>
-                    Consulte o conteúdo programático
-                    e organize as disciplinas.
+                    Conteúdo programático,
+                    disciplinas e assuntos.
                 </p>
 
-            </div>
+            </button>
 
 
             <!-- DISCIPLINAS -->
 
-            <div class="card">
+            <button
+                class="card modulo"
+                onclick="abrirDisciplinas()"
+            >
 
                 <h2>📚 Disciplinas</h2>
 
                 <p>
-                    Acesse as matérias e os assuntos
-                    previstos no edital.
+                    Organize todas as matérias
+                    da preparação.
                 </p>
 
-            </div>
+            </button>
 
 
             <!-- QUESTÕES -->
 
-            <div class="card">
+            <button
+                class="card modulo"
+                onclick="abrirQuestoes()"
+            >
 
                 <h2>📝 Questões</h2>
 
                 <p>
-                    Resolva questões e registre
+                    Resolva questões e acompanhe
                     seus resultados.
                 </p>
 
-            </div>
+            </button>
 
 
             <!-- CRONOGRAMA -->
 
-            <div class="card">
+            <button
+                class="card modulo"
+                onclick="abrirCronograma()"
+            >
 
                 <h2>📅 Cronograma</h2>
 
                 <p>
-                    Organize sua rotina e acompanhe
-                    as sessões de estudo.
+                    Organize sua rotina
+                    de estudos.
                 </p>
 
-            </div>
+            </button>
 
 
             <!-- DESEMPENHO -->
 
-            <div class="card">
+            <button
+                class="card modulo"
+                onclick="abrirDesempenho()"
+            >
 
                 <h2>📊 Desempenho</h2>
 
                 <p>
-                    Acompanhe seu percentual de
-                    acertos por disciplina.
+                    Acompanhe seus
+                    percentuais de acerto.
                 </p>
 
-            </div>
+            </button>
 
 
             <!-- REVISÕES -->
 
-            <div class="card">
+            <button
+                class="card modulo"
+                onclick="abrirRevisoes()"
+            >
 
                 <h2>🔄 Revisões</h2>
 
                 <p>
-                    Organize revisões e conteúdos
-                    que precisam de reforço.
+                    Organize conteúdos
+                    para revisar.
                 </p>
 
-            </div>
+            </button>
+
 
         </section>
 
 
-        <!-- PROGRESSO GERAL -->
+        <!-- ==============================
+             PROGRESSO
+        =============================== -->
 
         <section class="card progresso-card">
 
@@ -142,28 +178,44 @@
                 Preparação para a prova objetiva
             </p>
 
+
             <div class="progresso">
 
-                <div class="barra"></div>
+                <div
+                    class="barra"
+                    id="barraProgresso"
+                ></div>
 
             </div>
 
+
             <p>
-                <strong>35%</strong> concluído
+
+                <strong id="percentual">
+                    35%
+                </strong>
+
+                concluído
+
             </p>
 
         </section>
 
 
-        <!-- ÁREA DE ESTUDO -->
+        <!-- ==============================
+             FOCO ATUAL
+        =============================== -->
 
         <section class="card">
 
             <h2>🎯 Foco atual</h2>
 
             <p>
+
                 Organizar a preparação de acordo
-                com o conteúdo programático da SEFAZ/AL.
+                com o conteúdo programático da
+                SEFAZ/AL.
+
             </p>
 
         </section>
@@ -172,7 +224,9 @@
     </main>
 
 
-    <!-- RODAPÉ -->
+    <!-- ==============================
+         RODAPÉ
+    =============================== -->
 
     <footer>
 
@@ -181,6 +235,15 @@
         </p>
 
     </footer>
+
+
+    <!-- ==============================
+         JAVASCRIPT
+    =============================== -->
+
+    <script
+        src="js/app.js"
+    ></script>
 
 
 </body>
