@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Projeto Alfa</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f4f6f8;
+            color: #222;
+        }
+
+        header {
+            background: #1f3c88;
+            color: white;
+            padding: 25px;
+            text-align: center;
+        }
+
+        header h1 {
+            margin: 0;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: auto;
+            padding: 20px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .card h2 {
+            margin-top: 0;
+            color: #1f3c88;
+        }
+
+        .progresso {
+            background: #ddd;
+            height: 12px;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .barra {
+            background: #18a558;
+            width: 35%;
+            height: 100%;
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h1>Projeto Alfa</h1>
+    <p>Preparação para Auditor Fiscal — SEFAZ/AL</p>
+</header>
+
+<div class="container">
+
+    <h2>Dashboard</h2>
+
+    <div class="grid">
+
+        <div class="card">
+            <h2>📚 Disciplinas</h2>
+            <p>Organize todas as matérias do edital.</p>
+        </div>
+
+        <div class="card">
+            <h2>📝 Questões</h2>
+            <p>Resolva questões e registre seus resultados.</p>
+        </div>
+
+        <div class="card">
+            <h2>📊 Desempenho</h2>
+            <p>Acompanhe seu percentual de acertos.</p>
+        </div>
+
+        <div class="card">
+            <h2>📅 Cronograma</h2>
+            <p>Planeje seus estudos.</p>
+        </div>
+
+    </div>
+
+    <h2>Progresso geral</h2>
+
+    <div class="card">
+
+        <p>Projeto Alfa — preparação objetiva</p>
+
+        <div class="progresso">
+            <div class="barra"></div>
+        </div>
+
+        <p>35% concluído</p>
+
+    </div>
+
+</div>
+
+</body>
+</html>
