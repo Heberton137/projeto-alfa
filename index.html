@@ -1,222 +1,59 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
-
     <meta charset="UTF-8">
-
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
-    <title>Projeto Alfa</title>
-
-    <link
-        rel="stylesheet"
-        href="css/style.css"
-    >
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Projeto Alfa — Dashboard SEFAZ/AL 2026</title>
+    <link rel="stylesheet" href="css/style.css">
+    <!-- SDK Oficial do Supabase v2 via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-
-
 <body>
 
-
-    <header>
-
-        <h1>Projeto Alfa</h1>
-
-        <p>
-            Preparação para Auditor Fiscal — SEFAZ/AL
-        </p>
-
+    <header class="header-principal">
+        <div class="container">
+            <h1>PROJETO ALFA</h1>
+            <p>Plataforma Adaptativa — SEFAZ/AL Auditor Fiscal 2026</p>
+            <nav class="nav-principal">
+                <a href="paginas/questoes.html" class="btn btn-primario">Ir para Módulo de Questões →</a>
+            </nav>
+        </div>
     </header>
 
-
-    <main class="container">
-
-
-        <h2>Dashboard</h2>
-
-        <p>
-            Central de estudos e acompanhamento
-            da preparação.
-        </p>
-
-
-        <section class="grid">
-
-
-            <!-- EDITAL -->
-
-            <a
-                href="#"
-                class="card modulo"
-            >
-
-                <h2>📖 Edital</h2>
-
-                <p>
-                    Conteúdo programático,
-                    disciplinas e assuntos.
-                </p>
-
-            </a>
-
-
-            <!-- DISCIPLINAS -->
-
-            <a
-                href="#"
-                class="card modulo"
-            >
-
-                <h2>📚 Disciplinas</h2>
-
-                <p>
-                    Organize todas as matérias
-                    da preparação.
-                </p>
-
-            </a>
-
-
-            <!-- QUESTÕES -->
-
-            <a
-                href="paginas/questoes.html"
-                class="card modulo"
-            >
-
-                <h2>📝 Questões</h2>
-
-                <p>
-                    Resolva questões e acompanhe
-                    seus resultados.
-                </p>
-
-            </a>
-
-
-            <!-- CRONOGRAMA -->
-
-            <a
-                href="#"
-                class="card modulo"
-            >
-
-                <h2>📅 Cronograma</h2>
-
-                <p>
-                    Organize sua rotina
-                    de estudos.
-                </p>
-
-            </a>
-
-
-            <!-- DESEMPENHO -->
-
-            <a
-                href="#"
-                class="card modulo"
-            >
-
-                <h2>📊 Desempenho</h2>
-
-                <p>
-                    Acompanhe seus
-                    percentuais de acerto.
-                </p>
-
-            </a>
-
-
-            <!-- REVISÕES -->
-
-            <a
-                href="#"
-                class="card modulo"
-            >
-
-                <h2>🔄 Revisões</h2>
-
-                <p>
-                    Organize conteúdos
-                    para revisar.
-                </p>
-
-            </a>
-
-
+    <main class="container conteudo-principal">
+        <section class="secao-titulo">
+            <h2>Painel de Desempenho Geral</h2>
+            <p>Acompanhe suas estatísticas de estudo atualizadas em tempo real.</p>
         </section>
 
-
-        <!-- PROGRESSO -->
-
-        <section class="card">
-
-            <h2>
-                📈 Progresso geral
-            </h2>
-
-            <p>
-                Preparação para a prova objetiva
-            </p>
-
-
-            <div class="progresso">
-
-                <div
-                    class="barra"
-                ></div>
-
+        <!-- Container de Estatísticas Conectado ao Supabase -->
+        <section id="stats-dashboard" class="grid-metricas">
+            <div class="card-metrica">
+                <h3>Total Respondidas</h3>
+                <p id="stat-total" class="valor-metrica">--</p>
             </div>
-
-
-            <p>
-
-                <strong>35%</strong>
-
-                concluído
-
-            </p>
-
+            <div class="card-metrica">
+                <h3>Taxa de Acerto</h3>
+                <p id="stat-acerto" class="valor-metrica">--%</p>
+            </div>
+            <div class="card-metrica">
+                <h3>Tempo Médio</h3>
+                <p id="stat-tempo" class="valor-metrica">--s</p>
+            </div>
         </section>
 
-
-        <!-- FOCO -->
-
-        <section class="card">
-
-            <h2>
-                🎯 Foco atual
-            </h2>
-
-            <p>
-
-                Organizar a preparação de acordo
-                com o conteúdo programático da
-                SEFAZ/AL.
-
-            </p>
-
+        <section class="secao-acoes-rapidas">
+            <a href="paginas/questoes.html" class="btn btn-grande">Iniciar Treino de Questões</a>
         </section>
-
-
     </main>
 
-
-    <footer>
-
-        <p>
-            Projeto Alfa — Sistema pessoal de preparação
-        </p>
-
+    <footer class="footer-principal">
+        <div class="container">
+            <p>Projeto Alfa &copy; 2026 — Preparatório para Concursos Públicos</p>
+        </div>
     </footer>
 
-
+    <!-- Lógica JavaScript Principal -->
+    <script src="js/app.js"></script>
 </body>
-
 </html>
