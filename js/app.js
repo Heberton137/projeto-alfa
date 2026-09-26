@@ -15,16 +15,17 @@ const supabaseClient = window.supabase
 let questaoAtual = null;
 let alternativaSelecionadaId = null;
 let tempoInicio = null;
+let questaoAnteriorId = null;
 
 // Evento de carregamento do DOM
 document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('container-questao')) {
-        carregarPrimeiraQuestao();
+        carregarQuestaoAleatoria();
     }
 });
 
-// Busca a primeira questão cadastrada na base de dados
-async function carregarPrimeiraQuestao() {
+// Busca uma questão na base de dados evitando repetição direta
+async function carregarQuestaoAleatoria() {
     const container = document.getElementById('container-questao');
     if (!container) return;
 
@@ -38,10 +39,13 @@ async function carregarPrimeiraQuestao() {
         return;
     }
 
+    // Reset de estado visual e de seleção
+    questaoAtual = null;
+    alternativaSelecionadaId = null;
     container.innerHTML = '<p class="carregando">Carregando questão do Supabase...</p>';
 
     try {
-        // Consulta relacional obtendo questão, disciplina, assunto, alternativas e resolução
+        // Consulta todas as questões com seus relacionamentos
         const { data: questoes, error } = await supabaseClient
             .from('questoes')
             .select(`
@@ -52,9 +56,7 @@ async function carregarPrimeiraQuestao() {
                 assuntos ( id, nome ),
                 alternativas ( id, letra, texto, correta ),
                 resolucoes ( id, texto )
-            `)
-            .order('criado_em', { ascending: false })
-            .limit(1);
+            `);
 
         if (error) throw error;
 
@@ -68,8 +70,15 @@ async function carregarPrimeiraQuestao() {
             return;
         }
 
-        questaoAtual = questoes[0];
-        
+        // Filtra para evitar repetir a mesma questão em sequência quando houver mais de uma
+        let candidatas = questoes.filter(q => q.id !== questaoAnteriorId);
+        if (candidatas.length === 0) candidatas = questoes;
+
+        // Sorteia uma questão da lista
+        const indiceSorteado = Math.floor(Math.random() * candidatas.length);
+        questaoAtual = candidatas[indiceSorteado];
+        questaoAnteriorId = questaoAtual.id;
+
         // Ordena as alternativas em ordem alfabética (A, B, C, D, E)
         if (questaoAtual.alternativas) {
             questaoAtual.alternativas.sort((a, b) => a.letra.localeCompare(b.letra));
@@ -77,7 +86,7 @@ async function carregarPrimeiraQuestao() {
 
         renderizarQuestao(questaoAtual);
 
-        // Marca o momento em que a questão foi exibida ao aluno
+        // Marca o momento inicial para cronometrar a resolução
         tempoInicio = Date.now();
 
     } catch (err) {
@@ -90,12 +99,12 @@ async function carregarPrimeiraQuestao() {
     }
 }
 
-// Renderiza a estrutura da questão na tela
+// Renderiza a estrutura visual da questão na tela
 function renderizarQuestao(q) {
     const container = document.getElementById('container-questao');
     
-    const disciplinaNome = q.disciplinas?.nome || 'Matemática Financeira';
-    const assuntoNome = q.assuntos?.nome || 'Juros Simples';
+    const disciplinaNome = q.disciplinas?.nome || 'Geral';
+    const assuntoNome = q.assuntos?.nome || 'Geral';
 
     let htmlAlternativas = '';
     if (q.alternativas && q.alternativas.length > 0) {
@@ -129,6 +138,7 @@ function renderizarQuestao(q) {
 
             <div class="acoes-questao">
                 <button id="btn-responder" class="btn btn-primario" onclick="responderQuestao()" disabled>Responder</button>
+                <button id="btn-proxima" class="btn btn-secundario" onclick="carregarQuestaoAleatoria()" style="display: none;">Próxima Questão →</button>
             </div>
 
             <div id="feedback-resposta" class="feedback-container"></div>
@@ -156,7 +166,7 @@ function selecionarAlternativa(id) {
     if (btn) btn.disabled = false;
 }
 
-// Avalia a resposta, registra o desempenho no Supabase e exibe a resolução
+// Avalia a resposta, registra o desempenho e ativa o botão de próxima questão
 async function responderQuestao() {
     if (!questaoAtual || !alternativaSelecionadaId) return;
 
@@ -164,22 +174,22 @@ async function responderQuestao() {
     const altCorreta = questaoAtual.alternativas.find(a => a.correta === true);
     const eCorreto = Boolean(altSelecionada?.correta);
 
-    // Calcula o tempo gasto para responder (em segundos)
     const tempoFim = Date.now();
     const tempoRespostaSegundos = tempoInicio ? Math.round((tempoFim - tempoInicio) / 1000) : 0;
 
     const feedbackDiv = document.getElementById('feedback-resposta');
     const boxResolucao = document.getElementById('box-resolucao');
     const btnResponder = document.getElementById('btn-responder');
+    const btnProxima = document.getElementById('btn-proxima');
 
-    // Desabilita as opções para evitar múltiplos envios
+    // Desabilita as alternativas para travar o envio
     document.querySelectorAll('input[name="alternativa"]').forEach(input => input.disabled = true);
     if (btnResponder) {
         btnResponder.disabled = true;
         btnResponder.innerText = 'Gravando...';
     }
 
-    // Salva o registro de desempenho no banco de dados do Supabase
+    // Grava a tentativa na tabela desempenho do Supabase
     try {
         const { error: erroGravacao } = await supabaseClient
             .from('desempenho')
@@ -191,17 +201,18 @@ async function responderQuestao() {
             }]);
 
         if (erroGravacao) {
-            console.error('Erro ao gravar desempenho no Supabase:', erroGravacao);
+            console.error('Erro ao gravar desempenho:', erroGravacao);
         } else {
-            console.log('Desempenho gravado com sucesso no Supabase!');
+            console.log('Desempenho salvo com sucesso no Supabase!');
         }
     } catch (err) {
         console.error('Erro inesperado ao salvar resposta:', err);
     } finally {
         if (btnResponder) btnResponder.innerText = 'Respondido';
+        if (btnProxima) btnProxima.style.display = 'inline-block';
     }
 
-    // Aplica estilos visuais de certo/errado
+    // Estilização das alternativas (Certo/Errado)
     document.querySelectorAll('.opcao-alternativa').forEach(el => {
         const altId = el.id.replace('label-alt-', '');
         if (altId === altCorreta?.id) {
@@ -211,7 +222,7 @@ async function responderQuestao() {
         }
     });
 
-    // Exibe a mensagem de retorno
+    // Exibe a mensagem de feedback
     if (eCorreto) {
         feedbackDiv.innerHTML = `
             <div class="alerta sucesso">
@@ -226,7 +237,7 @@ async function responderQuestao() {
         `;
     }
 
-    // Revela a caixa com a resolução comentada
+    // Revela a resolução comentada
     if (boxResolucao) {
         boxResolucao.style.display = 'block';
     }
