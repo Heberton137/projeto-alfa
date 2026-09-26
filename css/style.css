@@ -76,7 +76,7 @@ body {
 }
 
 .secao-titulo {
-    margin-bottom: 2rem;
+    margin-bottom: 1.5rem;
 }
 
 .secao-titulo h2 {
@@ -96,7 +96,7 @@ body {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 1.5rem;
-    margin-bottom: 2.5rem;
+    margin-bottom: 2rem;
 }
 
 .card-metrica {
@@ -130,11 +130,59 @@ body {
     line-height: 1;
 }
 
-/* AÇÕES RÁPIDAS E BOTÕES */
-.secao-acoes-rapidas {
-    margin-top: 1rem;
+/* CARDS DE DISCIPLINA NO DASHBOARD */
+.card-disciplina-dash {
+    background-color: var(--cor-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 12px;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
 }
 
+.card-disciplina-dash h4 {
+    font-size: 1.1rem;
+    color: var(--cor-texto);
+    margin-bottom: 0.75rem;
+}
+
+.detalhes-disciplina-dash {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 0.75rem;
+}
+
+.taxa-disciplina {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: var(--cor-primaria);
+}
+
+.qtd-disciplina {
+    font-size: 0.85rem;
+    color: var(--cor-texto-suave);
+}
+
+/* BARRA DE PROGRESSO DE ACERTOS */
+.barra-progresso-fundo {
+    width: 100%;
+    height: 8px;
+    background-color: #e2e8f0;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.barra-progresso-preenchimento {
+    height: 100%;
+    background-color: var(--cor-primaria);
+    border-radius: 4px;
+    transition: width 0.4s ease;
+}
+
+/* BOTÕES */
 .btn {
     display: inline-flex;
     align-items: center;
@@ -156,19 +204,6 @@ body {
 
 .btn-primario:hover {
     background-color: #f1f5f9;
-}
-
-.btn-grande {
-    background-color: var(--cor-primaria);
-    color: #ffffff;
-    padding: 1rem 2rem;
-    font-size: 1.1rem;
-    border-radius: 10px;
-    box-shadow: 0 4px 6px -1px rgba(30, 58, 138, 0.2);
-}
-
-.btn-grande:hover {
-    background-color: var(--cor-primaria-hover);
 }
 
 .btn-secundario {
@@ -273,10 +308,13 @@ body {
     margin-left: auto;
     background-color: #fef3c7;
     color: #92400e;
-    font-family: monospace;
-    font-size: 0.9rem;
+    font-family: monospace, monospace;
+    font-size: 0.95rem;
+    font-weight: 800;
     letter-spacing: 0.05em;
     border: 1px solid #fde68a;
+    display: inline-flex;
+    align-items: center;
 }
 
 .enunciado-questao {
