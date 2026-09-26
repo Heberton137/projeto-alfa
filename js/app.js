@@ -1,5 +1,5 @@
 // ============================================================
-// PROJETO ALFA — LÓGICA DE CONEXÃO, NAVEGAÇÃO E DESEMPENHO
+// PROJETO ALFA — LÓGICA COMPLETA (DASHBOARD & QUESTÕES)
 // ============================================================
 
 // Credenciais públicas do Supabase (Projeto Alfa)
@@ -11,20 +11,69 @@ const supabaseClient = window.supabase
     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) 
     : null;
 
-// Estado global da questão e métricas do aluno
+// Estado global da questão e métricas
 let questaoAtual = null;
 let alternativaSelecionadaId = null;
 let tempoInicio = null;
 let questaoAnteriorId = null;
 
-// Evento de carregamento do DOM
+// Roteamento automatizado ao carregar a página
 document.addEventListener('DOMContentLoaded', () => {
+    if (document.getElementById('stats-dashboard')) {
+        carregarMetricasDashboard();
+    }
+    
     if (document.getElementById('container-questao')) {
         carregarQuestaoAleatoria();
     }
 });
 
-// Busca uma questão na base de dados evitando repetição direta
+// ============================================================
+// LÓGICA DO DASHBOARD DE DESEMPENHO (index.html)
+// ============================================================
+
+async function carregarMetricasDashboard() {
+    const elTotal = document.getElementById('stat-total');
+    const elAcerto = document.getElementById('stat-acerto');
+    const elTempo = document.getElementById('stat-tempo');
+
+    if (!supabaseClient || !elTotal) return;
+
+    try {
+        const { data: registros, error } = await supabaseClient
+            .from('desempenho')
+            .select('correto, tempo_resposta_segundos');
+
+        if (error) throw error;
+
+        if (!registros || registros.length === 0) {
+            elTotal.innerText = '0';
+            elAcerto.innerText = '0%';
+            elTempo.innerText = '0s';
+            return;
+        }
+
+        const total = registros.length;
+        const acertos = registros.filter(r => r.correto === true).length;
+        const taxaAcerto = Math.round((acertos / total) * 100);
+
+        const tempoTotal = registros.reduce((acc, r) => acc + (r.tempo_resposta_segundos || 0), 0);
+        const tempoMedio = Math.round(tempoTotal / total);
+
+        elTotal.innerText = total;
+        elAcerto.innerText = `${taxaAcerto}%`;
+        elTempo.innerText = `${tempoMedio}s`;
+
+    } catch (err) {
+        console.error('Erro ao carregar métricas do Dashboard:', err);
+        if (elTotal) elTotal.innerText = 'Erro';
+    }
+}
+
+// ============================================================
+// LÓGICA DO MÓDULO DE QUESTÕES (paginas/questoes.html)
+// ============================================================
+
 async function carregarQuestaoAleatoria() {
     const container = document.getElementById('container-questao');
     if (!container) return;
@@ -39,13 +88,11 @@ async function carregarQuestaoAleatoria() {
         return;
     }
 
-    // Reset de estado visual e de seleção
     questaoAtual = null;
     alternativaSelecionadaId = null;
     container.innerHTML = '<p class="carregando">Carregando questão do Supabase...</p>';
 
     try {
-        // Consulta todas as questões com seus relacionamentos
         const { data: questoes, error } = await supabaseClient
             .from('questoes')
             .select(`
@@ -70,23 +117,18 @@ async function carregarQuestaoAleatoria() {
             return;
         }
 
-        // Filtra para evitar repetir a mesma questão em sequência quando houver mais de uma
         let candidatas = questoes.filter(q => q.id !== questaoAnteriorId);
         if (candidatas.length === 0) candidatas = questoes;
 
-        // Sorteia uma questão da lista
         const indiceSorteado = Math.floor(Math.random() * candidatas.length);
         questaoAtual = candidatas[indiceSorteado];
         questaoAnteriorId = questaoAtual.id;
 
-        // Ordena as alternativas em ordem alfabética (A, B, C, D, E)
         if (questaoAtual.alternativas) {
             questaoAtual.alternativas.sort((a, b) => a.letra.localeCompare(b.letra));
         }
 
         renderizarQuestao(questaoAtual);
-
-        // Marca o momento inicial para cronometrar a resolução
         tempoInicio = Date.now();
 
     } catch (err) {
@@ -99,7 +141,6 @@ async function carregarQuestaoAleatoria() {
     }
 }
 
-// Renderiza a estrutura visual da questão na tela
 function renderizarQuestao(q) {
     const container = document.getElementById('container-questao');
     
@@ -153,7 +194,6 @@ function renderizarQuestao(q) {
     `;
 }
 
-// Registra a alternativa selecionada pelo usuário
 function selecionarAlternativa(id) {
     alternativaSelecionadaId = id;
     
@@ -166,7 +206,6 @@ function selecionarAlternativa(id) {
     if (btn) btn.disabled = false;
 }
 
-// Avalia a resposta, registra o desempenho e ativa o botão de próxima questão
 async function responderQuestao() {
     if (!questaoAtual || !alternativaSelecionadaId) return;
 
@@ -182,14 +221,12 @@ async function responderQuestao() {
     const btnResponder = document.getElementById('btn-responder');
     const btnProxima = document.getElementById('btn-proxima');
 
-    // Desabilita as alternativas para travar o envio
     document.querySelectorAll('input[name="alternativa"]').forEach(input => input.disabled = true);
     if (btnResponder) {
         btnResponder.disabled = true;
         btnResponder.innerText = 'Gravando...';
     }
 
-    // Grava a tentativa na tabela desempenho do Supabase
     try {
         const { error: erroGravacao } = await supabaseClient
             .from('desempenho')
@@ -202,8 +239,6 @@ async function responderQuestao() {
 
         if (erroGravacao) {
             console.error('Erro ao gravar desempenho:', erroGravacao);
-        } else {
-            console.log('Desempenho salvo com sucesso no Supabase!');
         }
     } catch (err) {
         console.error('Erro inesperado ao salvar resposta:', err);
@@ -212,7 +247,6 @@ async function responderQuestao() {
         if (btnProxima) btnProxima.style.display = 'inline-block';
     }
 
-    // Estilização das alternativas (Certo/Errado)
     document.querySelectorAll('.opcao-alternativa').forEach(el => {
         const altId = el.id.replace('label-alt-', '');
         if (altId === altCorreta?.id) {
@@ -222,7 +256,6 @@ async function responderQuestao() {
         }
     });
 
-    // Exibe a mensagem de feedback
     if (eCorreto) {
         feedbackDiv.innerHTML = `
             <div class="alerta sucesso">
@@ -237,7 +270,6 @@ async function responderQuestao() {
         `;
     }
 
-    // Revela a resolução comentada
     if (boxResolucao) {
         boxResolucao.style.display = 'block';
     }
