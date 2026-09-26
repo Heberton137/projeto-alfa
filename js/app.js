@@ -1,5 +1,5 @@
 // ============================================================
-// PROJETO ALFA — LÓGICA COMPLETA v7 (DASHBOARD COM CHART.JS, CRONÓMETRO E ERROS)
+// PROJETO ALFA — LÓGICA COMPLETA v8 (DASHBOARD, SIMULADO & CADERNO DE ERROS)
 // ============================================================
 
 const SUPABASE_URL = 'https://maqnmxskvoccaxfoyojj.supabase.co';
@@ -14,6 +14,7 @@ function getSupabaseClient() {
     return null;
 }
 
+// ESTADO DO MÓDULO DE QUESTÕES INDIVIDUAIS
 let questaoAtual = null;
 let alternativaSelecionadaId = null;
 let questaoAnteriorId = null;
@@ -21,9 +22,18 @@ let questaoAnteriorId = null;
 let cronometroIntervalo = null;
 let segundosDecorridos = 0;
 
-// Instâncias Globais do Chart.js para destruição/renderização limpa
+// INSTÂNCIAS DOS GRÁFICOS CHART.JS
 let chartGeralInstance = null;
 let chartDisciplinasInstance = null;
+
+// ESTADO DO MODO SIMULADO
+let simuladoEstado = {
+    questoes: [],
+    respostas: {},
+    indiceAtual: 0,
+    tempoRestanteSegundos: 0,
+    intervaloCronometro: null
+};
 
 document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('stats-dashboard')) {
@@ -33,6 +43,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('container-questao')) {
         carregarFiltros();
         carregarQuestaoAleatoria();
+    }
+
+    if (document.getElementById('tela-config-simulado')) {
+        carregarFiltrosSimulado();
     }
 });
 
@@ -107,7 +121,6 @@ async function carregarMetricasDashboard() {
     if (elAcerto) elAcerto.innerText = `${taxaAcerto}%`;
     if (elTempo) elTempo.innerText = `${tempoMedio}s`;
 
-    // AGREGAR DESEMPENHO POR DISCIPLINA
     const estatisticasPorDisciplina = {};
 
     registrosFinal.forEach(reg => {
@@ -123,7 +136,6 @@ async function carregarMetricasDashboard() {
         }
     });
 
-    // Renderizar cards por disciplina
     if (containerDisciplinas) {
         containerDisciplinas.innerHTML = '';
         
@@ -146,14 +158,12 @@ async function carregarMetricasDashboard() {
         });
     }
 
-    // RENDERIZAR GRÁFICOS CHART.JS
     renderizarGraficos(acertos, erros, estatisticasPorDisciplina);
 }
 
 function renderizarGraficos(acertos, erros, estatisticasDisciplinas) {
     if (typeof Chart === 'undefined') return;
 
-    // 1. Gráfico de Rosca (Geral)
     const ctxGeral = document.getElementById('chart-geral')?.getContext('2d');
     if (ctxGeral) {
         if (chartGeralInstance) chartGeralInstance.destroy();
@@ -179,7 +189,6 @@ function renderizarGraficos(acertos, erros, estatisticasDisciplinas) {
         });
     }
 
-    // 2. Gráfico de Barras (Por Disciplina)
     const ctxDisciplinas = document.getElementById('chart-disciplinas')?.getContext('2d');
     if (ctxDisciplinas) {
         if (chartDisciplinasInstance) chartDisciplinasInstance.destroy();
@@ -220,7 +229,7 @@ function renderizarGraficos(acertos, erros, estatisticasDisciplinas) {
 }
 
 // ============================================================
-// FILTROS DE PESQUISA E STATUS (paginas/questoes.html)
+// FILTROS DE PESQUISA E MÓDULO DE QUESTÕES INDIVIDUAIS
 // ============================================================
 
 async function carregarFiltros() {
@@ -283,18 +292,12 @@ async function carregarAssuntosFiltro(disciplinaId = '') {
 function aoMudarDisciplina() {
     const selectDisciplina = document.getElementById('select-disciplina');
     const disciplinaId = selectDisciplina ? selectDisciplina.value : '';
-    
     carregarAssuntosFiltro(disciplinaId);
     carregarQuestaoAleatoria();
 }
 
-function aoMudarAssunto() {
-    carregarQuestaoAleatoria();
-}
-
-function aoMudarStatus() {
-    carregarQuestaoAleatoria();
-}
+function aoMudarAssunto() { carregarQuestaoAleatoria(); }
+function aoMudarStatus() { carregarQuestaoAleatoria(); }
 
 function obterHistoricoRespostas() {
     try {
@@ -303,10 +306,6 @@ function obterHistoricoRespostas() {
         return [];
     }
 }
-
-// ============================================================
-// CRONÓMETRO EM TEMPO REAL
-// ============================================================
 
 function iniciarCronometro() {
     pararCronometro();
@@ -331,14 +330,9 @@ function atualizarDisplayCronometro() {
     if (elCronometro) {
         const min = Math.floor(segundosDecorridos / 60);
         const seg = segundosDecorridos % 60;
-        const textoFormatado = `${String(min).padStart(2, '0')}:${String(seg).padStart(2, '0')}`;
-        elCronometro.innerText = `⏱️ ${textoFormatado}`;
+        elCronometro.innerText = `⏱️ ${String(min).padStart(2, '0')}:${String(seg).padStart(2, '0')}`;
     }
 }
-
-// ============================================================
-// MÓDULO DE QUESTÕES
-// ============================================================
 
 async function carregarQuestaoAleatoria() {
     const container = document.getElementById('container-questao');
@@ -378,15 +372,10 @@ async function carregarQuestaoAleatoria() {
                 resolucoes ( id, texto )
             `);
 
-        if (disciplinaFiltroId) {
-            query = query.eq('disciplina_id', disciplinaFiltroId);
-        }
-        if (assuntoFiltroId) {
-            query = query.eq('assunto_id', assuntoFiltroId);
-        }
+        if (disciplinaFiltroId) query = query.eq('disciplina_id', disciplinaFiltroId);
+        if (assuntoFiltroId) query = query.eq('assunto_id', assuntoFiltroId);
 
         const { data: questoes, error } = await query;
-
         if (error) throw error;
 
         if (!questoes || questoes.length === 0) {
@@ -453,7 +442,6 @@ async function carregarQuestaoAleatoria() {
 
 function renderizarQuestao(q) {
     const container = document.getElementById('container-questao');
-    
     const disciplinaNome = q.disciplinas?.nome || 'Geral';
     const assuntoNome = q.assuntos?.nome || 'Geral';
 
@@ -507,9 +495,7 @@ function renderizarQuestao(q) {
 
 function selecionarAlternativa(id) {
     alternativaSelecionadaId = id;
-    
     document.querySelectorAll('.opcao-alternativa').forEach(el => el.classList.remove('selecionada'));
-    
     const label = document.getElementById(`label-alt-${id}`);
     if (label) label.classList.add('selecionada');
 
@@ -523,7 +509,6 @@ async function responderQuestao() {
     pararCronometro();
 
     const client = getSupabaseClient();
-
     const altSelecionada = questaoAtual.alternativas.find(a => a.id === alternativaSelecionadaId);
     const altCorreta = questaoAtual.alternativas.find(a => a.correta === true);
     const eCorreto = Boolean(altSelecionada?.correta);
@@ -604,7 +589,238 @@ async function responderQuestao() {
         `;
     }
 
-    if (boxResolucao) {
-        boxResolucao.style.display = 'block';
+    if (boxResolucao) boxResolucao.style.display = 'block';
+}
+
+// ============================================================
+// MÓDULO DE MODO SIMULADO
+// ============================================================
+
+async function carregarFiltrosSimulado() {
+    const select = document.getElementById('simulado-disciplina');
+    if (!select) return;
+
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    try {
+        const { data: disciplinas, error } = await client
+            .from('disciplinas')
+            .select('id, nome')
+            .order('nome');
+
+        if (error) throw error;
+
+        select.innerHTML = '<option value="">Todas as Disciplinas</option>';
+        if (disciplinas) {
+            disciplinas.forEach(d => {
+                select.innerHTML += `<option value="${d.id}">${d.nome}</option>`;
+            });
+        }
+    } catch (e) {
+        console.error('Erro ao carregar disciplinas no simulado:', e);
     }
+}
+
+async function iniciarSimulado() {
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    const disciplinaId = document.getElementById('simulado-disciplina')?.value || '';
+    const qtdDemandada = parseInt(document.getElementById('simulado-qtd')?.value || '10');
+    const tempoMinutos = parseInt(document.getElementById('simulado-tempo')?.value || '20');
+
+    try {
+        let query = client
+            .from('questoes')
+            .select(`
+                id,
+                enunciado,
+                tipo,
+                disciplinas ( id, nome ),
+                assuntos ( id, nome ),
+                alternativas ( id, letra, texto, correta ),
+                resolucoes ( id, texto )
+            `);
+
+        if (disciplinaId) query = query.eq('disciplina_id', disciplinaId);
+
+        const { data: questoes, error } = await query;
+        if (error || !questoes || questoes.length === 0) {
+            alert('Não foram encontradas questões suficientes para este simulado.');
+            return;
+        }
+
+        const embaralhadas = [...questoes].sort(() => Math.random() - 0.5);
+        simuladoEstado.questoes = embaralhadas.slice(0, Math.min(qtdDemandada, embaralhadas.length));
+        simuladoEstado.respostas = {};
+        simuladoEstado.indiceAtual = 0;
+        simuladoEstado.tempoRestanteSegundos = tempoMinutos * 60;
+
+        document.getElementById('tela-config-simulado').style.display = 'none';
+        document.getElementById('tela-execucao-simulado').style.display = 'block';
+
+        iniciarCronometroSimulado();
+        renderizarQuestaoSimulado();
+
+    } catch (err) {
+        console.error('Erro ao iniciar simulado:', err);
+    }
+}
+
+function iniciarCronometroSimulado() {
+    if (simuladoEstado.intervaloCronometro) clearInterval(simuladoEstado.intervaloCronometro);
+
+    atualizarDisplayCronometroSimulado();
+    simuladoEstado.intervaloCronometro = setInterval(() => {
+        simuladoEstado.tempoRestanteSegundos--;
+        atualizarDisplayCronometroSimulado();
+
+        if (simuladoEstado.tempoRestanteSegundos <= 0) {
+            clearInterval(simuladoEstado.intervaloCronometro);
+            alert('⏱️ O Tempo Limite do Simulado Terminou! O seu teste será finalizado automaticamente.');
+            finalizarSimulado();
+        }
+    }, 1000);
+}
+
+function atualizarDisplayCronometroSimulado() {
+    const el = document.getElementById('cronometro-simulado-display');
+    if (!el) return;
+    const min = Math.floor(simuladoEstado.tempoRestanteSegundos / 60);
+    const seg = simuladoEstado.tempoRestanteSegundos % 60;
+    el.innerText = `⏳ ${String(min).padStart(2, '0')}:${String(seg).padStart(2, '0')}`;
+}
+
+function renderizarQuestaoSimulado() {
+    const container = document.getElementById('container-simulado-questao');
+    const q = simuladoEstado.questoes[simuladoEstado.indiceAtual];
+    const total = simuladoEstado.questoes.length;
+
+    document.getElementById('info-progresso-simulado').innerText = `Questão ${simuladoEstado.indiceAtual + 1} de ${total}`;
+
+    if (q.alternativas) {
+        q.alternativas.sort((a, b) => a.letra.localeCompare(b.letra));
+    }
+
+    const respostaEscolhidaId = simuladoEstado.respostas[q.id] || null;
+
+    let htmlAlternativas = q.alternativas.map(alt => {
+        const estaSelecionada = respostaEscolhidaId === alt.id ? 'selecionada' : '';
+        const estaChecked = respostaEscolhidaId === alt.id ? 'checked' : '';
+
+        return `
+            <label class="opcao-alternativa ${estaSelecionada}" id="sim-alt-${alt.id}">
+                <input type="radio" name="sim-alt" value="${alt.id}" ${estaChecked} onchange="guardarRespostaSimulado('${q.id}', '${alt.id}')">
+                <span class="letra">${alt.letra})</span>
+                <span class="texto">${alt.texto}</span>
+            </label>
+        `;
+    }).join('');
+
+    const temAnterior = simuladoEstado.indiceAtual > 0;
+    const eUltima = simuladoEstado.indiceAtual === total - 1;
+
+    container.innerHTML = `
+        <div class="card-questao">
+            <div class="cabecalho-questao">
+                <span class="badge disciplina">${q.disciplinas?.nome || 'Geral'}</span>
+                <span class="badge assunto">${q.assuntos?.nome || 'Geral'}</span>
+            </div>
+            <div class="enunciado-questao"><p>${q.enunciado}</p></div>
+            <div class="lista-alternativas">${htmlAlternativas}</div>
+            <div class="acoes-questao" style="justify-content: space-between; display: flex;">
+                <button class="btn btn-secundario" onclick="navegarSimulado(-1)" ${!temAnterior ? 'disabled' : ''}>← Anterior</button>
+                ${eUltima 
+                    ? `<button class="btn btn-primario" onclick="finalizarSimulado()" style="background-color: #16a34a; color:#ffffff;">Finalizar e Entregar Teste ✔</button>`
+                    : `<button class="btn btn-primario" onclick="navegarSimulado(1)" style="background-color: #1e3a8a; color:#ffffff;">Próxima Questão →</button>`
+                }
+            </div>
+        </div>
+    `;
+}
+
+function guardarRespostaSimulado(questaoId, alternativaId) {
+    simuladoEstado.respostas[questaoId] = alternativaId;
+    document.querySelectorAll('.opcao-alternativa').forEach(el => el.classList.remove('selecionada'));
+    const label = document.getElementById(`sim-alt-${alternativaId}`);
+    if (label) label.classList.add('selecionada');
+}
+
+function navegarSimulado(delta) {
+    simuladoEstado.indiceAtual += delta;
+    renderizarQuestaoSimulado();
+}
+
+async function finalizarSimulado() {
+    if (simuladoEstado.intervaloCronometro) clearInterval(simuladoEstado.intervaloCronometro);
+
+    document.getElementById('tela-execucao-simulado').style.display = 'none';
+    document.getElementById('tela-resultado-simulado').style.display = 'block';
+
+    const client = getSupabaseClient();
+    let totalAcertos = 0;
+    let totalQuestao = simuladoEstado.questoes.length;
+
+    const registrosParaGravar = [];
+
+    simuladoEstado.questoes.forEach(q => {
+        const escolheuId = simuladoEstado.respostas[q.id] || null;
+        const correta = q.alternativas.find(a => a.correta === true);
+        const eCorreto = Boolean(escolheuId && correta && escolheuId === correta.id);
+
+        if (eCorreto) totalAcertos++;
+
+        if (escolheuId) {
+            registrosParaGravar.push({
+                questao_id: q.id,
+                alternativa_escolhida_id: escolheuId,
+                correto: eCorreto,
+                tempo_resposta_segundos: 0,
+                questoes: {
+                    disciplina_id: q.disciplinas?.id,
+                    disciplinas: {
+                        id: q.disciplinas?.id,
+                        nome: q.disciplinas?.nome || 'Geral'
+                    }
+                }
+            });
+        }
+    });
+
+    try {
+        const historicoLocal = JSON.parse(localStorage.getItem('alfa_desempenho_local') || '[]');
+        localStorage.setItem('alfa_desempenho_local', JSON.stringify([...historicoLocal, ...registrosParaGravar]));
+    } catch (e) {
+        console.error('Erro ao gravar simulado localmente:', e);
+    }
+
+    if (client && registrosParaGravar.length > 0) {
+        try {
+            const ins = registrosParaGravar.map(r => ({
+                questao_id: r.questao_id,
+                alternativa_escolhida_id: r.alternativa_escolhida_id,
+                correto: r.correto,
+                tempo_resposta_segundos: 0
+            }));
+            await client.from('desempenho').insert(ins);
+        } catch (e) {
+            console.error('Erro ao gravar simulado no Supabase:', e);
+        }
+    }
+
+    const taxaAproveitamento = Math.round((totalAcertos / totalQuestao) * 100);
+
+    const relatorioContainer = document.getElementById('container-relatorio-simulado');
+    relatorioContainer.innerHTML = `
+        <div class="card-questao" style="text-align: center;">
+            <h3 style="font-size: 2rem; color: #1e3a8a; margin-bottom: 0.5rem;">Aproveitamento: ${taxaAproveitamento}%</h3>
+            <p style="font-size: 1.1rem; color: #475569; margin-bottom: 1.5rem;">Acertou <strong>${totalAcertos}</strong> de <strong>${totalQuestao}</strong> questões do simulado.</p>
+            
+            <div style="display: flex; gap: 1rem; justify-content: center; margin-top: 1.5rem; flex-wrap: wrap;">
+                <a href="../index.html" class="btn btn-primario" style="background-color: #1e3a8a; color: #ffffff;">Ver no Dashboard Geral</a>
+                <button class="btn btn-secundario" onclick="window.location.reload()">Novo Simulado</button>
+            </div>
+        </div>
+    `;
 }
