@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Projeto Alfa — Painel de Desempenho</title>
-    <link rel="stylesheet" href="css/style.css?v=8">
+    <title>Projeto Alfa — Painel de Desempenho BI</title>
+    <link rel="stylesheet" href="css/style.css?v=9">
     <!-- SDK Oficial do Supabase v2 via CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- Biblioteca Chart.js para gráficos estatísticos -->
@@ -24,38 +24,74 @@
     </header>
 
     <main class="container conteudo-principal">
-        <section class="secao-titulo">
-            <h2>Métricas Gerais de Desempenho</h2>
-            <p>Acompanhe a sua evolução global no estudo para o concurso.</p>
+        <!-- Banner de Prontidão e Nível de Preparação -->
+        <section class="banner-readiness" id="banner-readiness">
+            <div class="readiness-info">
+                <span class="badge-readiness" id="readiness-level-badge">Analisando Dados...</span>
+                <h3>Índice de Prontidão para a Prova SEFAZ/AL</h3>
+                <p id="readiness-description">Responda a simulados e questões para calcular sua estimativa de aprovação.</p>
+            </div>
+            <div class="readiness-score" id="readiness-score-val">--%</div>
         </section>
 
-        <!-- Cards de Métricas Gerais -->
-        <section id="stats-dashboard" class="grid-metricas">
-            <div class="card-metrica">
-                <h3>Total de Questões</h3>
+        <section class="secao-titulo">
+            <h2>Métricas Comparativas de Desempenho</h2>
+            <p>Acompanhe a diferença entre o seu treino diário e a sua performance sob pressão nos simulados.</p>
+        </section>
+
+        <!-- Cards de Métricas Distribuídas -->
+        <section id="stats-dashboard" class="grid-metricas-tres">
+            <!-- Bloco 1: Treino Diário -->
+            <div class="card-metrica destaque-treino">
+                <div class="card-metrica-header">
+                    <span>📘 Treino Diário</span>
+                    <span class="tag-subtle">Questões Avulsas</span>
+                </div>
+                <div id="stat-treino-total" class="valor-metrica">--</div>
+                <div class="sub-metricas">
+                    <span>Taxa de Acerto: <strong id="stat-treino-acerto">--%</strong></span>
+                    <span>Tempo Médio: <strong id="stat-treino-tempo">--s</strong></span>
+                </div>
+            </div>
+
+            <!-- Bloco 2: Modo Simulado -->
+            <div class="card-metrica destaque-simulado">
+                <div class="card-metrica-header">
+                    <span>⏱️ Modo Simulado</span>
+                    <span class="tag-subtle">Provas com Tempo</span>
+                </div>
+                <div id="stat-simulado-total" class="valor-metrica">--</div>
+                <div class="sub-metricas">
+                    <span>Aproveitamento: <strong id="stat-simulado-acerto">--%</strong></span>
+                    <span>Simulados Concluídos: <strong id="stat-simulado-qtd">--</strong></span>
+                </div>
+            </div>
+
+            <!-- Bloco 3: Consolidado Geral -->
+            <div class="card-metrica destaque-geral">
+                <div class="card-metrica-header">
+                    <span>📊 Geral Consolidado</span>
+                    <span class="tag-subtle">Total de Questões</span>
+                </div>
                 <div id="stat-total" class="valor-metrica">--</div>
-            </div>
-            <div class="card-metrica">
-                <h3>Taxa de Acerto Geral</h3>
-                <div id="stat-acerto" class="valor-metrica">--%</div>
-            </div>
-            <div class="card-metrica">
-                <h3>Tempo Médio / Questão</h3>
-                <div id="stat-tempo" class="valor-metrica">--s</div>
+                <div class="sub-metricas">
+                    <span>Taxa Global: <strong id="stat-acerto">--%</strong></span>
+                    <span>Pace Médio: <strong id="stat-tempo">--s</strong></span>
+                </div>
             </div>
         </section>
 
         <!-- Seção de Gráficos de Desempenho -->
         <section class="secao-titulo" style="margin-top: 2.5rem;">
-            <h2>Análise Visual de Desempenho</h2>
-            <p>Gráficos em tempo real do aproveitamento global e por matéria.</p>
+            <h2>Análise Visual e Comparativa</h2>
+            <p>Diagnóstico em tempo real de consistência e domínio por disciplina.</p>
         </section>
 
         <section class="grid-graficos">
             <div class="card-grafico">
-                <h3>Aproveitamento Geral</h3>
+                <h3>Treino Diário vs. Modo Simulado (%)</h3>
                 <div class="container-canvas">
-                    <canvas id="chart-geral"></canvas>
+                    <canvas id="chart-comparativo"></canvas>
                 </div>
             </div>
             <div class="card-grafico">
@@ -68,8 +104,8 @@
 
         <!-- Detalhamento de Desempenho por Disciplina -->
         <section class="secao-titulo" style="margin-top: 2.5rem;">
-            <h2>Desempenho por Disciplina</h2>
-            <p>Análise detalhada do seu aproveitamento por matéria estudada.</p>
+            <h2>Desempenho Detalhado por Disciplina</h2>
+            <p>Análise detalhada do seu aproveitamento acumulado em cada matéria do edital.</p>
         </section>
 
         <section id="container-disciplinas-dashboard" class="grid-metricas">
@@ -84,6 +120,6 @@
     </footer>
 
     <!-- Lógica JavaScript da Aplicação -->
-    <script src="js/app.js?v=8"></script>
+    <script src="js/app.js?v=9"></script>
 </body>
 </html>
