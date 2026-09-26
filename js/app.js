@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// Procura a questão de Matemática Financeira na base de dados
+// Busca a questão cadastrada na base de dados
 async function carregarPrimeiraQuestao() {
     const container = document.getElementById('container-questao');
     if (!container) return;
@@ -31,16 +31,16 @@ async function carregarPrimeiraQuestao() {
         container.innerHTML = `
             <div class="alerta erro">
                 <h3>Erro de Inicialização</h3>
-                <p>Não foi possível carregar a biblioteca do Supabase. Verifique a ligação à internet.</p>
+                <p>Não foi possível carregar a biblioteca do Supabase. Verifique a conexão com a internet.</p>
             </div>
         `;
         return;
     }
 
-    container.innerHTML = '<p class="carregando">A carregar questão do Supabase...</p>';
+    container.innerHTML = '<p class="carregando">Carregando questão do Supabase...</p>';
 
     try {
-        // Consulta relacional: busca questão, disciplina, assunto, alternativas e resolução
+        // Consulta relacional simplificada para obter a primeira questão cadastrada
         const { data: questoes, error } = await supabaseClient
             .from('questoes')
             .select(`
@@ -52,13 +52,18 @@ async function carregarPrimeiraQuestao() {
                 alternativas ( id, letra, texto, correta ),
                 resolucoes ( id, texto )
             `)
-            .ilike('enunciado', '%Uma aplicação de R$ 10.000,00%')
+            .order('criado_em', { ascending: false })
             .limit(1);
 
         if (error) throw error;
 
         if (!questoes || questoes.length === 0) {
-            container.innerHTML = '<p class="aviso">Nenhuma questão encontrada na base de dados.</p>';
+            container.innerHTML = `
+                <div class="alerta aviso">
+                    <h3>Nenhuma questão encontrada</h3>
+                    <p>Execute o script de liberação de RLS no Supabase para permitir a leitura pública dos dados.</p>
+                </div>
+            `;
             return;
         }
 
@@ -72,7 +77,7 @@ async function carregarPrimeiraQuestao() {
         renderizarQuestao(questaoAtual);
 
     } catch (err) {
-        console.error('Erro ao procurar questão:', err);
+        console.error('Erro ao buscar questão:', err);
         container.innerHTML = `
             <div class="alerta erro">
                 <p>Erro ao carregar a questão do Supabase: ${err.message}</p>
@@ -81,7 +86,7 @@ async function carregarPrimeiraQuestao() {
     }
 }
 
-// Renderiza a estrutura da questão no ecrã
+// Renderiza a estrutura da questão na tela
 function renderizarQuestao(q) {
     const container = document.getElementById('container-questao');
     
@@ -134,7 +139,7 @@ function renderizarQuestao(q) {
     `;
 }
 
-// Regista a alternativa selecionada pelo utilizador
+// Registra a alternativa selecionada pelo usuário
 function selecionarAlternativa(id) {
     alternativaSelecionadaId = id;
     
