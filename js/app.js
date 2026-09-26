@@ -1,19 +1,20 @@
 // ============================================================
-// PROJETO ALFA — LÓGICA DE CONEXÃO E NAVEGAÇÃO DE QUESTÕES
+// PROJETO ALFA — LÓGICA DE CONEXÃO, NAVEGAÇÃO E DESEMPENHO
 // ============================================================
 
 // Credenciais públicas do Supabase (Projeto Alfa)
 const SUPABASE_URL = 'https://maqnmxskvoccaxfoyojj.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_EgfPySKJgkJw4MFnT1Mt_A_ILc1IU8x';
 
-// Inicialização do cliente Supabase
+// Inicialização do cliente Supabase via SDK CDN
 const supabaseClient = window.supabase 
     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) 
     : null;
 
-// Estado global da questão ativa
+// Estado global da questão e métricas do aluno
 let questaoAtual = null;
 let alternativaSelecionadaId = null;
+let tempoInicio = null;
 
 // Evento de carregamento do DOM
 document.addEventListener('DOMContentLoaded', () => {
@@ -22,7 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// Busca a questão cadastrada na base de dados
+// Busca a primeira questão cadastrada na base de dados
 async function carregarPrimeiraQuestao() {
     const container = document.getElementById('container-questao');
     if (!container) return;
@@ -40,7 +41,7 @@ async function carregarPrimeiraQuestao() {
     container.innerHTML = '<p class="carregando">Carregando questão do Supabase...</p>';
 
     try {
-        // Consulta relacional simplificada para obter a primeira questão cadastrada
+        // Consulta relacional obtendo questão, disciplina, assunto, alternativas e resolução
         const { data: questoes, error } = await supabaseClient
             .from('questoes')
             .select(`
@@ -61,7 +62,7 @@ async function carregarPrimeiraQuestao() {
             container.innerHTML = `
                 <div class="alerta aviso">
                     <h3>Nenhuma questão encontrada</h3>
-                    <p>Execute o script de liberação de RLS no Supabase para permitir a leitura pública dos dados.</p>
+                    <p>Cadastre questões na base de dados para começar os treinos.</p>
                 </div>
             `;
             return;
@@ -69,12 +70,15 @@ async function carregarPrimeiraQuestao() {
 
         questaoAtual = questoes[0];
         
-        // Ordena as alternativas por ordem alfabética (A, B, C, D, E)
+        // Ordena as alternativas em ordem alfabética (A, B, C, D, E)
         if (questaoAtual.alternativas) {
             questaoAtual.alternativas.sort((a, b) => a.letra.localeCompare(b.letra));
         }
 
         renderizarQuestao(questaoAtual);
+
+        // Marca o momento em que a questão foi exibida ao aluno
+        tempoInicio = Date.now();
 
     } catch (err) {
         console.error('Erro ao buscar questão:', err);
@@ -152,43 +156,77 @@ function selecionarAlternativa(id) {
     if (btn) btn.disabled = false;
 }
 
-// Avalia a resposta informada e exibe a resolução
-function responderQuestao() {
+// Avalia a resposta, registra o desempenho no Supabase e exibe a resolução
+async function responderQuestao() {
     if (!questaoAtual || !alternativaSelecionadaId) return;
 
     const altSelecionada = questaoAtual.alternativas.find(a => a.id === alternativaSelecionadaId);
     const altCorreta = questaoAtual.alternativas.find(a => a.correta === true);
+    const eCorreto = Boolean(altSelecionada?.correta);
+
+    // Calcula o tempo gasto para responder (em segundos)
+    const tempoFim = Date.now();
+    const tempoRespostaSegundos = tempoInicio ? Math.round((tempoFim - tempoInicio) / 1000) : 0;
 
     const feedbackDiv = document.getElementById('feedback-resposta');
     const boxResolucao = document.getElementById('box-resolucao');
     const btnResponder = document.getElementById('btn-responder');
 
+    // Desabilita as opções para evitar múltiplos envios
     document.querySelectorAll('input[name="alternativa"]').forEach(input => input.disabled = true);
-    if (btnResponder) btnResponder.disabled = true;
+    if (btnResponder) {
+        btnResponder.disabled = true;
+        btnResponder.innerText = 'Gravando...';
+    }
 
+    // Salva o registro de desempenho no banco de dados do Supabase
+    try {
+        const { error: erroGravacao } = await supabaseClient
+            .from('desempenho')
+            .insert([{
+                questao_id: questaoAtual.id,
+                alternativa_escolhida_id: alternativaSelecionadaId,
+                correto: eCorreto,
+                tempo_resposta_segundos: tempoRespostaSegundos
+            }]);
+
+        if (erroGravacao) {
+            console.error('Erro ao gravar desempenho no Supabase:', erroGravacao);
+        } else {
+            console.log('Desempenho gravado com sucesso no Supabase!');
+        }
+    } catch (err) {
+        console.error('Erro inesperado ao salvar resposta:', err);
+    } finally {
+        if (btnResponder) btnResponder.innerText = 'Respondido';
+    }
+
+    // Aplica estilos visuais de certo/errado
     document.querySelectorAll('.opcao-alternativa').forEach(el => {
         const altId = el.id.replace('label-alt-', '');
         if (altId === altCorreta?.id) {
             el.classList.add('correta');
-        } else if (altId === alternativaSelecionadaId && !altSelecionada?.correta) {
+        } else if (altId === alternativaSelecionadaId && !eCorreto) {
             el.classList.add('incorreta');
         }
     });
 
-    if (altSelecionada && altSelecionada.correta) {
+    // Exibe a mensagem de retorno
+    if (eCorreto) {
         feedbackDiv.innerHTML = `
             <div class="alerta sucesso">
-                <strong>Parabéns! Resposta Correta.</strong> (Alternativa ${altSelecionada.letra})
+                <strong>Parabéns! Resposta Correta.</strong> (Alternativa ${altSelecionada.letra}) — Tempo: ${tempoRespostaSegundos}s
             </div>
         `;
     } else {
         feedbackDiv.innerHTML = `
             <div class="alerta erro">
-                <strong>Resposta Incorreta!</strong> A alternativa correta é a <strong>${altCorreta ? altCorreta.letra : 'C'}</strong>.
+                <strong>Resposta Incorreta!</strong> A alternativa correta é a <strong>${altCorreta ? altCorreta.letra : 'C'}</strong>. — Tempo: ${tempoRespostaSegundos}s
             </div>
         `;
     }
 
+    // Revela a caixa com a resolução comentada
     if (boxResolucao) {
         boxResolucao.style.display = 'block';
     }
