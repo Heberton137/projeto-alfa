@@ -245,6 +245,7 @@ body {
 
 .cabecalho-questao {
     display: flex;
+    align-items: center;
     gap: 0.5rem;
     margin-bottom: 1.5rem;
     flex-wrap: wrap;
@@ -266,6 +267,16 @@ body {
 .badge.assunto {
     background-color: #f1f5f9;
     color: #475569;
+}
+
+.badge.tempo {
+    margin-left: auto;
+    background-color: #fef3c7;
+    color: #92400e;
+    font-family: monospace;
+    font-size: 0.9rem;
+    letter-spacing: 0.05em;
+    border: 1px solid #fde68a;
 }
 
 .enunciado-questao {
