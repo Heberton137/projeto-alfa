@@ -3,10 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Projeto Alfa — Dashboard SEFAZ/AL 2026</title>
-    <link rel="stylesheet" href="css/style.css?v=2">
+    <title>Projeto Alfa — Painel de Desempenho</title>
+    <link rel="stylesheet" href="css/style.css?v=7">
     <!-- SDK Oficial do Supabase v2 via CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Biblioteca Chart.js para gráficos estatísticos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
@@ -22,28 +24,55 @@
 
     <main class="container conteudo-principal">
         <section class="secao-titulo">
-            <h2>Painel de Desempenho Geral</h2>
-            <p>Acompanhe suas estatísticas de estudo atualizadas em tempo real.</p>
+            <h2>Métricas Gerais de Desempenho</h2>
+            <p>Acompanhe a sua evolução global no estudo para o concurso.</p>
         </section>
 
-        <!-- Painel de Métricas -->
+        <!-- Cards de Métricas Gerais -->
         <section id="stats-dashboard" class="grid-metricas">
             <div class="card-metrica">
-                <h3>Total Respondidas</h3>
-                <p id="stat-total" class="valor-metrica">0</p>
+                <h3>Total de Questões</h3>
+                <div id="stat-total" class="valor-metrica">--</div>
             </div>
             <div class="card-metrica">
-                <h3>Taxa de Acerto</h3>
-                <p id="stat-acerto" class="valor-metrica">0%</p>
+                <h3>Taxa de Acerto Geral</h3>
+                <div id="stat-acerto" class="valor-metrica">--%</div>
             </div>
             <div class="card-metrica">
-                <h3>Tempo Médio</h3>
-                <p id="stat-tempo" class="valor-metrica">0s</p>
+                <h3>Tempo Médio / Questão</h3>
+                <div id="stat-tempo" class="valor-metrica">--s</div>
             </div>
         </section>
 
-        <section class="secao-acoes-rapidas">
-            <a href="paginas/questoes.html" class="btn btn-grande">Iniciar Treino de Questões</a>
+        <!-- Seção de Gráficos de Desempenho -->
+        <section class="secao-titulo" style="margin-top: 2.5rem;">
+            <h2>Análise Visual de Desempenho</h2>
+            <p>Gráficos em tempo real do aproveitamento global e por matéria.</p>
+        </section>
+
+        <section class="grid-graficos">
+            <div class="card-grafico">
+                <h3>Aproveitamento Geral</h3>
+                <div class="container-canvas">
+                    <canvas id="chart-geral"></canvas>
+                </div>
+            </div>
+            <div class="card-grafico">
+                <h3>Taxa de Acerto por Disciplina (%)</h3>
+                <div class="container-canvas">
+                    <canvas id="chart-disciplinas"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Detalhamento de Desempenho por Disciplina -->
+        <section class="secao-titulo" style="margin-top: 2.5rem;">
+            <h2>Desempenho por Disciplina</h2>
+            <p>Análise detalhada do seu aproveitamento por matéria estudada.</p>
+        </section>
+
+        <section id="container-disciplinas-dashboard" class="grid-metricas">
+            <p class="carregando">Carregando estatísticas das disciplinas...</p>
         </section>
     </main>
 
@@ -53,7 +82,7 @@
         </div>
     </footer>
 
-    <!-- Lógica JavaScript Principal -->
-    <script src="js/app.js"></script>
+    <!-- Lógica JavaScript da Aplicação -->
+    <script src="js/app.js?v=7"></script>
 </body>
 </html>
