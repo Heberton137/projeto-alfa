@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Projeto Alfa — Módulo de Questões</title>
-    <link rel="stylesheet" href="../css/style.css?v=5">
+    <link rel="stylesheet" href="../css/style.css?v=6">
     <!-- SDK Oficial do Supabase v2 via CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -23,7 +23,7 @@
     <main class="container conteudo-principal">
         <section class="secao-titulo">
             <h2>Módulo de Resolução de Questões</h2>
-            <p>Filtre por matéria, responda às questões e acompanhe a resolução detalhada.</p>
+            <p>Filtre por matéria, assunto e status para direcionar a sua preparação.</p>
         </section>
 
         <!-- Painel de Filtros de Estudo -->
@@ -41,6 +41,14 @@
                         <option value="">Todos os Assuntos</option>
                     </select>
                 </div>
+                <div class="campo-filtro">
+                    <label for="select-status">Status da Questão</label>
+                    <select id="select-status" class="select-customizado" onchange="aoMudarStatus()">
+                        <option value="todas">Todas as Questões</option>
+                        <option value="ineditas">Apenas Inéditas</option>
+                        <option value="erradas">Caderno de Erros (Incorretas)</option>
+                    </select>
+                </div>
             </div>
         </section>
 
@@ -56,7 +64,7 @@
         </div>
     </footer>
 
-    <!-- Lógica JavaScript da Aplicação com Cache Buster ?v=5 -->
-    <script src="../js/app.js?v=5"></script>
+    <!-- Lógica JavaScript da Aplicação com Cache Buster ?v=6 -->
+    <script src="../js/app.js?v=6"></script>
 </body>
 </html>
