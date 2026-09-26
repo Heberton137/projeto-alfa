@@ -43,41 +43,57 @@ async function carregarMetricasDashboard() {
     const elTempo = document.getElementById('stat-tempo');
 
     const client = getSupabaseClient();
+    let registrosSupabase = [];
 
-    if (!client) {
-        console.warn('Supabase ainda não inicializado. Nova tentativa em 500ms...');
-        setTimeout(carregarMetricasDashboard, 500);
+    // 1. Tenta carregar dados do Supabase
+    if (client) {
+        try {
+            const { data, error } = await client
+                .from('desempenho')
+                .select('correto, tempo_resposta_segundos');
+
+            if (error) {
+                console.warn('Supabase RLS/Permissão:', error.message);
+            } else if (data) {
+                registrosSupabase = data;
+            }
+        } catch (err) {
+            console.error('Erro na requisição ao Supabase:', err);
+        }
+    }
+
+    // 2. Resgata também dados locais do navegador (Garantia/Backup)
+    let registrosLocais = [];
+    try {
+        registrosLocais = JSON.parse(localStorage.getItem('alfa_desempenho_local') || '[]');
+    } catch (e) {
+        registrosLocais = [];
+    }
+
+    // Seleciona a fonte que tiver o maior histórico de dados
+    const registrosFinal = registrosSupabase.length >= registrosLocais.length 
+        ? registrosSupabase 
+        : registrosLocais;
+
+    if (!registrosFinal || registrosFinal.length === 0) {
+        if (elTotal) elTotal.innerText = '0';
+        if (elAcerto) elAcerto.innerText = '0%';
+        if (elTempo) elTempo.innerText = '0s';
         return;
     }
 
-    try {
-        const { data: registros, error } = await client
-            .from('desempenho')
-            .select('correto, tempo_resposta_segundos');
+    // Cálculos de métricas
+    const total = registrosFinal.length;
+    const acertos = registrosFinal.filter(r => r.correto === true || r.correto === 'true').length;
+    const taxaAcerto = Math.round((acertos / total) * 100);
 
-        if (error) throw error;
+    const tempoTotal = registrosFinal.reduce((acc, r) => acc + (Number(r.tempo_resposta_segundos) || 0), 0);
+    const tempoMedio = Math.round(tempoTotal / total);
 
-        if (!registros || registros.length === 0) {
-            if (elTotal) elTotal.innerText = '0';
-            if (elAcerto) elAcerto.innerText = '0%';
-            if (elTempo) elTempo.innerText = '0s';
-            return;
-        }
-
-        const total = registros.length;
-        const acertos = registros.filter(r => r.correto === true).length;
-        const taxaAcerto = Math.round((acertos / total) * 100);
-
-        const tempoTotal = registros.reduce((acc, r) => acc + (r.tempo_resposta_segundos || 0), 0);
-        const tempoMedio = Math.round(tempoTotal / total);
-
-        if (elTotal) elTotal.innerText = total;
-        if (elAcerto) elAcerto.innerText = `${taxaAcerto}%`;
-        if (elTempo) elTempo.innerText = `${tempoMedio}s`;
-
-    } catch (err) {
-        console.error('Erro ao carregar métricas do Dashboard:', err);
-    }
+    // Renderização no DOM
+    if (elTotal) elTotal.innerText = total;
+    if (elAcerto) elAcerto.innerText = `${taxaAcerto}%`;
+    if (elTempo) elTempo.innerText = `${tempoMedio}s`;
 }
 
 // ============================================================
@@ -94,7 +110,7 @@ async function carregarQuestaoAleatoria() {
         container.innerHTML = `
             <div class="alerta erro">
                 <h3>Erro de Inicialização</h3>
-                <p>Não foi possível carregar a biblioteca do Supabase. Verifique a conexão com a internet.</p>
+                <p>Não foi possível carregar a biblioteca do Supabase. Verifique a sua ligação à internet.</p>
             </div>
         `;
         return;
@@ -222,7 +238,6 @@ async function responderQuestao() {
     if (!questaoAtual || !alternativaSelecionadaId) return;
 
     const client = getSupabaseClient();
-    if (!client) return;
 
     const altSelecionada = questaoAtual.alternativas.find(a => a.id === alternativaSelecionadaId);
     const altCorreta = questaoAtual.alternativas.find(a => a.correta === true);
@@ -242,25 +257,39 @@ async function responderQuestao() {
         btnResponder.innerText = 'Gravando...';
     }
 
-    try {
-        const { error: erroGravacao } = await client
-            .from('desempenho')
-            .insert([{
-                questao_id: questaoAtual.id,
-                alternativa_escolhida_id: alternativaSelecionadaId,
-                correto: eCorreto,
-                tempo_resposta_segundos: tempoRespostaSegundos
-            }]);
+    const novoRegistro = {
+        questao_id: questaoAtual.id,
+        alternativa_escolhida_id: alternativaSelecionadaId,
+        correto: eCorreto,
+        tempo_resposta_segundos: tempoRespostaSegundos
+    };
 
-        if (erroGravacao) {
-            console.error('Erro ao gravar desempenho:', erroGravacao);
-        }
-    } catch (err) {
-        console.error('Erro inesperado ao salvar resposta:', err);
-    } finally {
-        if (btnResponder) btnResponder.innerText = 'Respondido';
-        if (btnProxima) btnProxima.style.display = 'inline-block';
+    // 1. Grava no LocalStorage (Garantia de funcionamento imediato no painel)
+    try {
+        const historicoLocal = JSON.parse(localStorage.getItem('alfa_desempenho_local') || '[]');
+        historicoLocal.push(novoRegistro);
+        localStorage.setItem('alfa_desempenho_local', JSON.stringify(historicoLocal));
+    } catch (errLocal) {
+        console.error('Erro ao guardar desempenho localmente:', errLocal);
     }
+
+    // 2. Grava no Supabase
+    if (client) {
+        try {
+            const { error: erroGravacao } = await client
+                .from('desempenho')
+                .insert([novoRegistro]);
+
+            if (erroGravacao) {
+                console.warn('Aviso Supabase ao gravar desempenho (verifique as regras RLS da tabela desempenho):', erroGravacao.message);
+            }
+        } catch (err) {
+            console.error('Erro ao gravar no Supabase:', err);
+        }
+    }
+
+    if (btnResponder) btnResponder.innerText = 'Respondido';
+    if (btnProxima) btnProxima.style.display = 'inline-block';
 
     document.querySelectorAll('.opcao-alternativa').forEach(el => {
         const altId = el.id.replace('label-alt-', '');
