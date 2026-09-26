@@ -1,5 +1,5 @@
 // ============================================================
-// PROJETO ALFA — LÓGICA COMPLETA (DASHBOARD & QUESTÕES)
+// PROJETO ALFA — LÓGICA COMPLETA (DASHBOARD, FILTROS & QUESTÕES)
 // ============================================================
 
 // Credenciais públicas do Supabase (Projeto Alfa)
@@ -29,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     if (document.getElementById('container-questao')) {
+        carregarFiltros();
         carregarQuestaoAleatoria();
     }
 });
@@ -97,6 +98,79 @@ async function carregarMetricasDashboard() {
 }
 
 // ============================================================
+// LÓGICA DE FILTROS (paginas/questoes.html)
+// ============================================================
+
+async function carregarFiltros() {
+    const selectDisciplina = document.getElementById('select-disciplina');
+    if (!selectDisciplina) return;
+
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    try {
+        const { data: disciplinas, error } = await client
+            .from('disciplinas')
+            .select('id, nome')
+            .order('nome');
+
+        if (error) throw error;
+
+        selectDisciplina.innerHTML = '<option value="">Todas as Disciplinas</option>';
+        if (disciplinas) {
+            disciplinas.forEach(d => {
+                selectDisciplina.innerHTML += `<option value="${d.id}">${d.nome}</option>`;
+            });
+        }
+
+        await carregarAssuntosFiltro();
+
+    } catch (err) {
+        console.error('Erro ao carregar disciplinas para os filtros:', err);
+    }
+}
+
+async function carregarAssuntosFiltro(disciplinaId = '') {
+    const selectAssunto = document.getElementById('select-assunto');
+    if (!selectAssunto) return;
+
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    try {
+        let query = client.from('assuntos').select('id, nome, disciplina_id').order('nome');
+        
+        if (disciplinaId) {
+            query = query.eq('disciplina_id', disciplinaId);
+        }
+
+        const { data: assuntos, error } = await query;
+        if (error) throw error;
+
+        selectAssunto.innerHTML = '<option value="">Todos os Assuntos</option>';
+        if (assuntos) {
+            assuntos.forEach(a => {
+                selectAssunto.innerHTML += `<option value="${a.id}">${a.nome}</option>`;
+            });
+        }
+    } catch (err) {
+        console.error('Erro ao carregar assuntos para os filtros:', err);
+    }
+}
+
+function aoMudarDisciplina() {
+    const selectDisciplina = document.getElementById('select-disciplina');
+    const disciplinaId = selectDisciplina ? selectDisciplina.value : '';
+    
+    carregarAssuntosFiltro(disciplinaId);
+    carregarQuestaoAleatoria();
+}
+
+function aoMudarAssunto() {
+    carregarQuestaoAleatoria();
+}
+
+// ============================================================
 // LÓGICA DO MÓDULO DE QUESTÕES (paginas/questoes.html)
 // ============================================================
 
@@ -120,8 +194,11 @@ async function carregarQuestaoAleatoria() {
     alternativaSelecionadaId = null;
     container.innerHTML = '<p class="carregando">Carregando questão do Supabase...</p>';
 
+    const disciplinaFiltroId = document.getElementById('select-disciplina')?.value || '';
+    const assuntoFiltroId = document.getElementById('select-assunto')?.value || '';
+
     try {
-        const { data: questoes, error } = await client
+        let query = client
             .from('questoes')
             .select(`
                 id,
@@ -133,13 +210,22 @@ async function carregarQuestaoAleatoria() {
                 resolucoes ( id, texto )
             `);
 
+        if (disciplinaFiltroId) {
+            query = query.eq('disciplina_id', disciplinaFiltroId);
+        }
+        if (assuntoFiltroId) {
+            query = query.eq('assunto_id', assuntoFiltroId);
+        }
+
+        const { data: questoes, error } = await query;
+
         if (error) throw error;
 
         if (!questoes || questoes.length === 0) {
             container.innerHTML = `
                 <div class="alerta aviso">
                     <h3>Nenhuma questão encontrada</h3>
-                    <p>Cadastre questões na base de dados para começar os treinos.</p>
+                    <p>Não existem questões cadastradas para os filtros selecionados.</p>
                 </div>
             `;
             return;
@@ -281,7 +367,7 @@ async function responderQuestao() {
                 .insert([novoRegistro]);
 
             if (erroGravacao) {
-                console.warn('Aviso Supabase ao gravar desempenho (verifique as regras RLS da tabela desempenho):', erroGravacao.message);
+                console.warn('Aviso Supabase ao gravar desempenho:', erroGravacao.message);
             }
         } catch (err) {
             console.error('Erro ao gravar no Supabase:', err);
