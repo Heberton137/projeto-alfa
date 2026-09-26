@@ -6,10 +6,15 @@
 const SUPABASE_URL = 'https://maqnmxskvoccaxfoyojj.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_EgfPySKJgkJw4MFnT1Mt_A_ILc1IU8x';
 
-// Inicialização do cliente Supabase via SDK CDN
-const supabaseClient = window.supabase 
-    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) 
-    : null;
+// Função para obter a instância do cliente Supabase de forma segura
+function getSupabaseClient() {
+    if (window.supabaseClientInstance) return window.supabaseClientInstance;
+    if (window.supabase) {
+        window.supabaseClientInstance = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        return window.supabaseClientInstance;
+    }
+    return null;
+}
 
 // Estado global da questão e métricas
 let questaoAtual = null;
@@ -17,7 +22,7 @@ let alternativaSelecionadaId = null;
 let tempoInicio = null;
 let questaoAnteriorId = null;
 
-// Roteamento automatizado ao carregar a página
+// Inicialização automatizada ao carregar a página
 document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('stats-dashboard')) {
         carregarMetricasDashboard();
@@ -37,19 +42,25 @@ async function carregarMetricasDashboard() {
     const elAcerto = document.getElementById('stat-acerto');
     const elTempo = document.getElementById('stat-tempo');
 
-    if (!supabaseClient || !elTotal) return;
+    const client = getSupabaseClient();
+
+    if (!client) {
+        console.warn('Supabase ainda não inicializado. Nova tentativa em 500ms...');
+        setTimeout(carregarMetricasDashboard, 500);
+        return;
+    }
 
     try {
-        const { data: registros, error } = await supabaseClient
+        const { data: registros, error } = await client
             .from('desempenho')
             .select('correto, tempo_resposta_segundos');
 
         if (error) throw error;
 
         if (!registros || registros.length === 0) {
-            elTotal.innerText = '0';
-            elAcerto.innerText = '0%';
-            elTempo.innerText = '0s';
+            if (elTotal) elTotal.innerText = '0';
+            if (elAcerto) elAcerto.innerText = '0%';
+            if (elTempo) elTempo.innerText = '0s';
             return;
         }
 
@@ -60,13 +71,12 @@ async function carregarMetricasDashboard() {
         const tempoTotal = registros.reduce((acc, r) => acc + (r.tempo_resposta_segundos || 0), 0);
         const tempoMedio = Math.round(tempoTotal / total);
 
-        elTotal.innerText = total;
-        elAcerto.innerText = `${taxaAcerto}%`;
-        elTempo.innerText = `${tempoMedio}s`;
+        if (elTotal) elTotal.innerText = total;
+        if (elAcerto) elAcerto.innerText = `${taxaAcerto}%`;
+        if (elTempo) elTempo.innerText = `${tempoMedio}s`;
 
     } catch (err) {
         console.error('Erro ao carregar métricas do Dashboard:', err);
-        if (elTotal) elTotal.innerText = 'Erro';
     }
 }
 
@@ -78,7 +88,9 @@ async function carregarQuestaoAleatoria() {
     const container = document.getElementById('container-questao');
     if (!container) return;
 
-    if (!supabaseClient) {
+    const client = getSupabaseClient();
+
+    if (!client) {
         container.innerHTML = `
             <div class="alerta erro">
                 <h3>Erro de Inicialização</h3>
@@ -93,7 +105,7 @@ async function carregarQuestaoAleatoria() {
     container.innerHTML = '<p class="carregando">Carregando questão do Supabase...</p>';
 
     try {
-        const { data: questoes, error } = await supabaseClient
+        const { data: questoes, error } = await client
             .from('questoes')
             .select(`
                 id,
@@ -209,6 +221,9 @@ function selecionarAlternativa(id) {
 async function responderQuestao() {
     if (!questaoAtual || !alternativaSelecionadaId) return;
 
+    const client = getSupabaseClient();
+    if (!client) return;
+
     const altSelecionada = questaoAtual.alternativas.find(a => a.id === alternativaSelecionadaId);
     const altCorreta = questaoAtual.alternativas.find(a => a.correta === true);
     const eCorreto = Boolean(altSelecionada?.correta);
@@ -228,7 +243,7 @@ async function responderQuestao() {
     }
 
     try {
-        const { error: erroGravacao } = await supabaseClient
+        const { error: erroGravacao } = await client
             .from('desempenho')
             .insert([{
                 questao_id: questaoAtual.id,
