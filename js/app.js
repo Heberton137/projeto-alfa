@@ -45,6 +45,7 @@ async function carregarMetricasDashboard() {
     const elTotal = document.getElementById('stat-total');
     const elAcerto = document.getElementById('stat-acerto');
     const elTempo = document.getElementById('stat-tempo');
+    const containerDisciplinas = document.getElementById('container-disciplinas-dashboard');
 
     const client = getSupabaseClient();
     let registrosSupabase = [];
@@ -54,7 +55,14 @@ async function carregarMetricasDashboard() {
         try {
             const { data, error } = await client
                 .from('desempenho')
-                .select('correto, tempo_resposta_segundos');
+                .select(`
+                    correto, 
+                    tempo_resposta_segundos,
+                    questoes (
+                        disciplina_id,
+                        disciplinas ( id, nome )
+                    )
+                `);
 
             if (error) {
                 console.warn('Supabase RLS/Permissão:', error.message);
@@ -83,10 +91,17 @@ async function carregarMetricasDashboard() {
         if (elTotal) elTotal.innerText = '0';
         if (elAcerto) elAcerto.innerText = '0%';
         if (elTempo) elTempo.innerText = '0s';
+        if (containerDisciplinas) {
+            containerDisciplinas.innerHTML = `
+                <div class="alerta aviso" style="grid-column: 1 / -1;">
+                    <p>Nenhuma questão respondida ainda. Acesse o módulo de questões para começar a praticar!</p>
+                </div>
+            `;
+        }
         return;
     }
 
-    // Cálculos de métricas
+    // Cálculos de métricas gerais
     const total = registrosFinal.length;
     const acertos = registrosFinal.filter(r => r.correto === true || r.correto === 'true').length;
     const taxaAcerto = Math.round((acertos / total) * 100);
@@ -94,10 +109,49 @@ async function carregarMetricasDashboard() {
     const tempoTotal = registrosFinal.reduce((acc, r) => acc + (Number(r.tempo_resposta_segundos) || 0), 0);
     const tempoMedio = Math.round(tempoTotal / total);
 
-    // Renderização no DOM
+    // Renderização das métricas gerais
     if (elTotal) elTotal.innerText = total;
     if (elAcerto) elAcerto.innerText = `${taxaAcerto}%`;
     if (elTempo) elTempo.innerText = `${tempoMedio}s`;
+
+    // AGREGAR DESEMPENHO POR DISCIPLINA
+    const estatisticasPorDisciplina = {};
+
+    registrosFinal.forEach(reg => {
+        const nomeDisciplina = reg.questoes?.disciplinas?.nome || 'Disciplina Geral';
+        
+        if (!estatisticasPorDisciplina[nomeDisciplina]) {
+            estatisticasPorDisciplina[nomeDisciplina] = { total: 0, acertos: 0 };
+        }
+
+        estatisticasPorDisciplina[nomeDisciplina].total += 1;
+        if (reg.correto === true || reg.correto === 'true') {
+            estatisticasPorDisciplina[nomeDisciplina].acertos += 1;
+        }
+    });
+
+    // Renderizar cards por disciplina
+    if (containerDisciplinas) {
+        containerDisciplinas.innerHTML = '';
+        
+        Object.keys(estatisticasPorDisciplina).forEach(nome => {
+            const stat = estatisticasPorDisciplina[nome];
+            const pct = Math.round((stat.acertos / stat.total) * 100);
+
+            containerDisciplinas.innerHTML += `
+                <div class="card-disciplina-dash">
+                    <h4>${nome}</h4>
+                    <div class="detalhes-disciplina-dash">
+                        <span class="taxa-disciplina">${pct}%</span>
+                        <span class="qtd-disciplina">${stat.acertos}/${stat.total} questões</span>
+                    </div>
+                    <div class="barra-progresso-fundo">
+                        <div class="barra-progresso-preenchimento" style="width: ${pct}%;"></div>
+                    </div>
+                </div>
+            `;
+        });
+    }
 }
 
 // ============================================================
@@ -386,7 +440,14 @@ async function responderQuestao() {
         questao_id: questaoAtual.id,
         alternativa_escolhida_id: alternativaSelecionadaId,
         correto: eCorreto,
-        tempo_resposta_segundos: tempoRespostaSegundos
+        tempo_resposta_segundos: tempoRespostaSegundos,
+        questoes: {
+            disciplina_id: questaoAtual.disciplinas?.id,
+            disciplinas: {
+                id: questaoAtual.disciplinas?.id,
+                nome: questaoAtual.disciplinas?.nome || 'Geral'
+            }
+        }
     };
 
     // 1. Grava no LocalStorage (Garantia de funcionamento imediato no painel)
@@ -403,7 +464,12 @@ async function responderQuestao() {
         try {
             const { error: erroGravacao } = await client
                 .from('desempenho')
-                .insert([novoRegistro]);
+                .insert([{
+                    questao_id: questaoAtual.id,
+                    alternativa_escolhida_id: alternativaSelecionadaId,
+                    correto: eCorreto,
+                    tempo_resposta_segundos: tempoRespostaSegundos
+                }]);
 
             if (erroGravacao) {
                 console.warn('Aviso Supabase ao gravar desempenho:', erroGravacao.message);
