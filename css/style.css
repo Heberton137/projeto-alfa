@@ -185,6 +185,55 @@ body {
     cursor: not-allowed;
 }
 
+/* PAINEL DE FILTROS */
+.painel-filtros {
+    background-color: var(--cor-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+}
+
+.grid-filtros {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.25rem;
+}
+
+.campo-filtro {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.campo-filtro label {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--cor-texto-suave);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.select-customizado {
+    width: 100%;
+    padding: 0.65rem 0.85rem;
+    font-size: 0.95rem;
+    font-family: inherit;
+    color: var(--cor-texto);
+    background-color: #ffffff;
+    border: 1px solid var(--cor-borda);
+    border-radius: 8px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+}
+
+.select-customizado:focus {
+    border-color: var(--cor-primaria);
+    box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.15);
+}
+
 /* MÓDULO DE QUESTÕES */
 .card-questao {
     background-color: var(--cor-card);
@@ -198,6 +247,7 @@ body {
     display: flex;
     gap: 0.5rem;
     margin-bottom: 1.5rem;
+    flex-wrap: wrap;
 }
 
 .badge {
