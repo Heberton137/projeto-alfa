@@ -1,5 +1,5 @@
 // ============================================================
-// PROJETO ALFA — LÓGICA COMPLETA (DASHBOARD, FILTROS & QUESTÕES)
+// PROJETO ALFA — LÓGICA COMPLETA (DASHBOARD, FILTROS, CRONÓMETRO & QUESTÕES)
 // ============================================================
 
 // Credenciais públicas do Supabase (Projeto Alfa)
@@ -16,11 +16,14 @@ function getSupabaseClient() {
     return null;
 }
 
-// Estado global da questão e métricas
+// Estado global da questão, tempo e filtros
 let questaoAtual = null;
 let alternativaSelecionadaId = null;
-let tempoInicio = null;
 let questaoAnteriorId = null;
+
+// Controle do Cronómetro em Tempo Real
+let cronometroIntervalo = null;
+let segundosDecorridos = 0;
 
 // Inicialização automatizada ao carregar a página
 document.addEventListener('DOMContentLoaded', () => {
@@ -171,12 +174,46 @@ function aoMudarAssunto() {
 }
 
 // ============================================================
+// FUNÇÕES DO CRONÓMETRO EM TEMPO REAL
+// ============================================================
+
+function iniciarCronometro() {
+    pararCronometro();
+    segundosDecorridos = 0;
+    atualizarDisplayCronometro();
+
+    cronometroIntervalo = setInterval(() => {
+        segundosDecorridos++;
+        atualizarDisplayCronometro();
+    }, 1000);
+}
+
+function pararCronometro() {
+    if (cronometroIntervalo) {
+        clearInterval(cronometroIntervalo);
+        cronometroIntervalo = null;
+    }
+}
+
+function atualizarDisplayCronometro() {
+    const elCronometro = document.getElementById('cronometro-display');
+    if (elCronometro) {
+        const min = Math.floor(segundosDecorridos / 60);
+        const seg = segundosDecorridos % 60;
+        const textoFormatado = `${String(min).padStart(2, '0')}:${String(seg).padStart(2, '0')}`;
+        elCronometro.innerText = `⏱️ ${textoFormatado}`;
+    }
+}
+
+// ============================================================
 // LÓGICA DO MÓDULO DE QUESTÕES (paginas/questoes.html)
 // ============================================================
 
 async function carregarQuestaoAleatoria() {
     const container = document.getElementById('container-questao');
     if (!container) return;
+
+    pararCronometro();
 
     const client = getSupabaseClient();
 
@@ -243,7 +280,7 @@ async function carregarQuestaoAleatoria() {
         }
 
         renderizarQuestao(questaoAtual);
-        tempoInicio = Date.now();
+        iniciarCronometro();
 
     } catch (err) {
         console.error('Erro ao buscar questão:', err);
@@ -281,6 +318,7 @@ function renderizarQuestao(q) {
             <div class="cabecalho-questao">
                 <span class="badge disciplina">${disciplinaNome}</span>
                 <span class="badge assunto">${assuntoNome}</span>
+                <span id="cronometro-display" class="badge tempo">⏱️ 00:00</span>
             </div>
 
             <div class="enunciado-questao">
@@ -323,14 +361,15 @@ function selecionarAlternativa(id) {
 async function responderQuestao() {
     if (!questaoAtual || !alternativaSelecionadaId) return;
 
+    pararCronometro();
+
     const client = getSupabaseClient();
 
     const altSelecionada = questaoAtual.alternativas.find(a => a.id === alternativaSelecionadaId);
     const altCorreta = questaoAtual.alternativas.find(a => a.correta === true);
     const eCorreto = Boolean(altSelecionada?.correta);
 
-    const tempoFim = Date.now();
-    const tempoRespostaSegundos = tempoInicio ? Math.round((tempoFim - tempoInicio) / 1000) : 0;
+    const tempoRespostaSegundos = segundosDecorridos;
 
     const feedbackDiv = document.getElementById('feedback-resposta');
     const boxResolucao = document.getElementById('box-resolucao');
@@ -389,13 +428,13 @@ async function responderQuestao() {
     if (eCorreto) {
         feedbackDiv.innerHTML = `
             <div class="alerta sucesso">
-                <strong>Parabéns! Resposta Correta.</strong> (Alternativa ${altSelecionada.letra}) — Tempo: ${tempoRespostaSegundos}s
+                <strong>Parabéns! Resposta Correta.</strong> (Alternativa ${altSelecionada.letra}) — Tempo de resolução: ${tempoRespostaSegundos}s
             </div>
         `;
     } else {
         feedbackDiv.innerHTML = `
             <div class="alerta erro">
-                <strong>Resposta Incorreta!</strong> A alternativa correta é a <strong>${altCorreta ? altCorreta.letra : 'C'}</strong>. — Tempo: ${tempoRespostaSegundos}s
+                <strong>Resposta Incorreta!</strong> A alternativa correta é a <strong>${altCorreta ? altCorreta.letra : 'C'}</strong>. — Tempo de resolução: ${tempoRespostaSegundos}s
             </div>
         `;
     }
