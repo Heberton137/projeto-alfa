@@ -1,5 +1,5 @@
 // ============================================================
-// PROJETO ALFA — LÓGICA COMPLETA v6 (FILTRO STATUS & CADERNO DE ERROS)
+// PROJETO ALFA — LÓGICA COMPLETA v7 (DASHBOARD COM CHART.JS, CRONÓMETRO E ERROS)
 // ============================================================
 
 const SUPABASE_URL = 'https://maqnmxskvoccaxfoyojj.supabase.co';
@@ -21,6 +21,10 @@ let questaoAnteriorId = null;
 let cronometroIntervalo = null;
 let segundosDecorridos = 0;
 
+// Instâncias Globais do Chart.js para destruição/renderização limpa
+let chartGeralInstance = null;
+let chartDisciplinasInstance = null;
+
 document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('stats-dashboard')) {
         carregarMetricasDashboard();
@@ -33,7 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ============================================================
-// DASHBOARD DE DESEMPENHO (index.html)
+// DASHBOARD DE DESEMPENHO E RENDERIZAÇÃO DE GRÁFICOS (index.html)
 // ============================================================
 
 async function carregarMetricasDashboard() {
@@ -93,6 +97,7 @@ async function carregarMetricasDashboard() {
 
     const total = registrosFinal.length;
     const acertos = registrosFinal.filter(r => r.correto === true || r.correto === 'true').length;
+    const erros = total - acertos;
     const taxaAcerto = Math.round((acertos / total) * 100);
 
     const tempoTotal = registrosFinal.reduce((acc, r) => acc + (Number(r.tempo_resposta_segundos) || 0), 0);
@@ -102,6 +107,7 @@ async function carregarMetricasDashboard() {
     if (elAcerto) elAcerto.innerText = `${taxaAcerto}%`;
     if (elTempo) elTempo.innerText = `${tempoMedio}s`;
 
+    // AGREGAR DESEMPENHO POR DISCIPLINA
     const estatisticasPorDisciplina = {};
 
     registrosFinal.forEach(reg => {
@@ -117,6 +123,7 @@ async function carregarMetricasDashboard() {
         }
     });
 
+    // Renderizar cards por disciplina
     if (containerDisciplinas) {
         containerDisciplinas.innerHTML = '';
         
@@ -138,10 +145,82 @@ async function carregarMetricasDashboard() {
             `;
         });
     }
+
+    // RENDERIZAR GRÁFICOS CHART.JS
+    renderizarGraficos(acertos, erros, estatisticasPorDisciplina);
+}
+
+function renderizarGraficos(acertos, erros, estatisticasDisciplinas) {
+    if (typeof Chart === 'undefined') return;
+
+    // 1. Gráfico de Rosca (Geral)
+    const ctxGeral = document.getElementById('chart-geral')?.getContext('2d');
+    if (ctxGeral) {
+        if (chartGeralInstance) chartGeralInstance.destroy();
+
+        chartGeralInstance = new Chart(ctxGeral, {
+            type: 'doughnut',
+            data: {
+                labels: ['Acertos', 'Erros'],
+                datasets: [{
+                    data: [acertos, erros],
+                    backgroundColor: ['#16a34a', '#dc2626'],
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' }
+                }
+            }
+        });
+    }
+
+    // 2. Gráfico de Barras (Por Disciplina)
+    const ctxDisciplinas = document.getElementById('chart-disciplinas')?.getContext('2d');
+    if (ctxDisciplinas) {
+        if (chartDisciplinasInstance) chartDisciplinasInstance.destroy();
+
+        const labels = Object.keys(estatisticasDisciplinas);
+        const dataPct = labels.map(nome => {
+            const stat = estatisticasDisciplinas[nome];
+            return Math.round((stat.acertos / stat.total) * 100);
+        });
+
+        chartDisciplinasInstance = new Chart(ctxDisciplinas, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Taxa de Acerto (%)',
+                    data: dataPct,
+                    backgroundColor: '#1e3a8a',
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: { callback: v => v + '%' }
+                    }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+    }
 }
 
 // ============================================================
-// FILTROS DE PESQUISA E STATUS
+// FILTROS DE PESQUISA E STATUS (paginas/questoes.html)
 // ============================================================
 
 async function carregarFiltros() {
@@ -217,7 +296,6 @@ function aoMudarStatus() {
     carregarQuestaoAleatoria();
 }
 
-// Auxiliar: obtém o histórico consolidado de respostas
 function obterHistoricoRespostas() {
     try {
         return JSON.parse(localStorage.getItem('alfa_desempenho_local') || '[]');
@@ -315,17 +393,14 @@ async function carregarQuestaoAleatoria() {
             container.innerHTML = `
                 <div class="alerta aviso">
                     <h3>Nenhuma questão encontrada</h3>
-                    <p>Não existem questões cadastradas para os filtros de disciplina/assunto selecionados.</p>
+                    <p>Não existem questões cadastradas para os filtros selecionados.</p>
                 </div>
             `;
             return;
         }
 
-        // --- FILTRAGEM POR STATUS (Inéditas vs Caderno de Erros) ---
         const historico = obterHistoricoRespostas();
         const idsRespondidos = new Set(historico.map(h => h.questao_id));
-        
-        // IDs onde a última resposta foi incorreta
         const idsIncorretos = new Set(
             historico.filter(h => h.correto === false || h.correto === 'false').map(h => h.questao_id)
         );
@@ -352,7 +427,6 @@ async function carregarQuestaoAleatoria() {
             return;
         }
 
-        // Evitar repetir a mesma questão imediatamente se houver outras opções
         let candidatas = questoesFiltradas.filter(q => q.id !== questaoAnteriorId);
         if (candidatas.length === 0) candidatas = questoesFiltradas;
 
