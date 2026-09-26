@@ -1,12 +1,10 @@
 // ============================================================
-// PROJETO ALFA — LÓGICA COMPLETA (DASHBOARD, FILTROS, CRONÓMETRO & QUESTÕES)
+// PROJETO ALFA — LÓGICA COMPLETA v6 (FILTRO STATUS & CADERNO DE ERROS)
 // ============================================================
 
-// Credenciais públicas do Supabase (Projeto Alfa)
 const SUPABASE_URL = 'https://maqnmxskvoccaxfoyojj.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_EgfPySKJgkJw4MFnT1Mt_A_ILc1IU8x';
 
-// Função para obter a instância do cliente Supabase de forma segura
 function getSupabaseClient() {
     if (window.supabaseClientInstance) return window.supabaseClientInstance;
     if (window.supabase) {
@@ -16,16 +14,13 @@ function getSupabaseClient() {
     return null;
 }
 
-// Estado global da questão, tempo e filtros
 let questaoAtual = null;
 let alternativaSelecionadaId = null;
 let questaoAnteriorId = null;
 
-// Controle do Cronómetro em Tempo Real
 let cronometroIntervalo = null;
 let segundosDecorridos = 0;
 
-// Inicialização automatizada ao carregar a página
 document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('stats-dashboard')) {
         carregarMetricasDashboard();
@@ -38,7 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ============================================================
-// LÓGICA DO DASHBOARD DE DESEMPENHO (index.html)
+// DASHBOARD DE DESEMPENHO (index.html)
 // ============================================================
 
 async function carregarMetricasDashboard() {
@@ -50,7 +45,6 @@ async function carregarMetricasDashboard() {
     const client = getSupabaseClient();
     let registrosSupabase = [];
 
-    // 1. Tenta carregar dados do Supabase
     if (client) {
         try {
             const { data, error } = await client
@@ -64,17 +58,14 @@ async function carregarMetricasDashboard() {
                     )
                 `);
 
-            if (error) {
-                console.warn('Supabase RLS/Permissão:', error.message);
-            } else if (data) {
+            if (!error && data) {
                 registrosSupabase = data;
             }
         } catch (err) {
-            console.error('Erro na requisição ao Supabase:', err);
+            console.error('Erro ao consultar Supabase:', err);
         }
     }
 
-    // 2. Resgata também dados locais do navegador (Garantia/Backup)
     let registrosLocais = [];
     try {
         registrosLocais = JSON.parse(localStorage.getItem('alfa_desempenho_local') || '[]');
@@ -82,7 +73,6 @@ async function carregarMetricasDashboard() {
         registrosLocais = [];
     }
 
-    // Seleciona a fonte que tiver o maior histórico de dados
     const registrosFinal = registrosSupabase.length >= registrosLocais.length 
         ? registrosSupabase 
         : registrosLocais;
@@ -101,7 +91,6 @@ async function carregarMetricasDashboard() {
         return;
     }
 
-    // Cálculos de métricas gerais
     const total = registrosFinal.length;
     const acertos = registrosFinal.filter(r => r.correto === true || r.correto === 'true').length;
     const taxaAcerto = Math.round((acertos / total) * 100);
@@ -109,12 +98,10 @@ async function carregarMetricasDashboard() {
     const tempoTotal = registrosFinal.reduce((acc, r) => acc + (Number(r.tempo_resposta_segundos) || 0), 0);
     const tempoMedio = Math.round(tempoTotal / total);
 
-    // Renderização das métricas gerais
     if (elTotal) elTotal.innerText = total;
     if (elAcerto) elAcerto.innerText = `${taxaAcerto}%`;
     if (elTempo) elTempo.innerText = `${tempoMedio}s`;
 
-    // AGREGAR DESEMPENHO POR DISCIPLINA
     const estatisticasPorDisciplina = {};
 
     registrosFinal.forEach(reg => {
@@ -130,7 +117,6 @@ async function carregarMetricasDashboard() {
         }
     });
 
-    // Renderizar cards por disciplina
     if (containerDisciplinas) {
         containerDisciplinas.innerHTML = '';
         
@@ -155,7 +141,7 @@ async function carregarMetricasDashboard() {
 }
 
 // ============================================================
-// LÓGICA DE FILTROS (paginas/questoes.html)
+// FILTROS DE PESQUISA E STATUS
 // ============================================================
 
 async function carregarFiltros() {
@@ -183,7 +169,7 @@ async function carregarFiltros() {
         await carregarAssuntosFiltro();
 
     } catch (err) {
-        console.error('Erro ao carregar disciplinas para os filtros:', err);
+        console.error('Erro ao carregar disciplinas:', err);
     }
 }
 
@@ -211,7 +197,7 @@ async function carregarAssuntosFiltro(disciplinaId = '') {
             });
         }
     } catch (err) {
-        console.error('Erro ao carregar assuntos para os filtros:', err);
+        console.error('Erro ao carregar assuntos:', err);
     }
 }
 
@@ -227,8 +213,21 @@ function aoMudarAssunto() {
     carregarQuestaoAleatoria();
 }
 
+function aoMudarStatus() {
+    carregarQuestaoAleatoria();
+}
+
+// Auxiliar: obtém o histórico consolidado de respostas
+function obterHistoricoRespostas() {
+    try {
+        return JSON.parse(localStorage.getItem('alfa_desempenho_local') || '[]');
+    } catch (e) {
+        return [];
+    }
+}
+
 // ============================================================
-// FUNÇÕES DO CRONÓMETRO EM TEMPO REAL
+// CRONÓMETRO EM TEMPO REAL
 // ============================================================
 
 function iniciarCronometro() {
@@ -260,7 +259,7 @@ function atualizarDisplayCronometro() {
 }
 
 // ============================================================
-// LÓGICA DO MÓDULO DE QUESTÕES (paginas/questoes.html)
+// MÓDULO DE QUESTÕES
 // ============================================================
 
 async function carregarQuestaoAleatoria() {
@@ -270,12 +269,11 @@ async function carregarQuestaoAleatoria() {
     pararCronometro();
 
     const client = getSupabaseClient();
-
     if (!client) {
         container.innerHTML = `
             <div class="alerta erro">
                 <h3>Erro de Inicialização</h3>
-                <p>Não foi possível carregar a biblioteca do Supabase. Verifique a sua ligação à internet.</p>
+                <p>Não foi possível ligar ao servidor.</p>
             </div>
         `;
         return;
@@ -283,10 +281,11 @@ async function carregarQuestaoAleatoria() {
 
     questaoAtual = null;
     alternativaSelecionadaId = null;
-    container.innerHTML = '<p class="carregando">Carregando questão do Supabase...</p>';
+    container.innerHTML = '<p class="carregando">Carregando questão com base nos filtros...</p>';
 
     const disciplinaFiltroId = document.getElementById('select-disciplina')?.value || '';
     const assuntoFiltroId = document.getElementById('select-assunto')?.value || '';
+    const statusFiltro = document.getElementById('select-status')?.value || 'todas';
 
     try {
         let query = client
@@ -316,14 +315,46 @@ async function carregarQuestaoAleatoria() {
             container.innerHTML = `
                 <div class="alerta aviso">
                     <h3>Nenhuma questão encontrada</h3>
-                    <p>Não existem questões cadastradas para os filtros selecionados.</p>
+                    <p>Não existem questões cadastradas para os filtros de disciplina/assunto selecionados.</p>
                 </div>
             `;
             return;
         }
 
-        let candidatas = questoes.filter(q => q.id !== questaoAnteriorId);
-        if (candidatas.length === 0) candidatas = questoes;
+        // --- FILTRAGEM POR STATUS (Inéditas vs Caderno de Erros) ---
+        const historico = obterHistoricoRespostas();
+        const idsRespondidos = new Set(historico.map(h => h.questao_id));
+        
+        // IDs onde a última resposta foi incorreta
+        const idsIncorretos = new Set(
+            historico.filter(h => h.correto === false || h.correto === 'false').map(h => h.questao_id)
+        );
+
+        let questoesFiltradas = [...questoes];
+
+        if (statusFiltro === 'ineditas') {
+            questoesFiltradas = questoesFiltradas.filter(q => !idsRespondidos.has(q.id));
+        } else if (statusFiltro === 'erradas') {
+            questoesFiltradas = questoesFiltradas.filter(q => idsIncorretos.has(q.id));
+        }
+
+        if (questoesFiltradas.length === 0) {
+            const mensagemStatus = statusFiltro === 'ineditas' 
+                ? 'Já respondeu a todas as questões disponíveis nestes filtros!' 
+                : 'Não existem questões incorretas no seu Caderno de Erros para os filtros selecionados.';
+
+            container.innerHTML = `
+                <div class="alerta aviso">
+                    <h3>Sem questões disponíveis no status selecionado</h3>
+                    <p>${mensagemStatus}</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Evitar repetir a mesma questão imediatamente se houver outras opções
+        let candidatas = questoesFiltradas.filter(q => q.id !== questaoAnteriorId);
+        if (candidatas.length === 0) candidatas = questoesFiltradas;
 
         const indiceSorteado = Math.floor(Math.random() * candidatas.length);
         questaoAtual = candidatas[indiceSorteado];
@@ -340,7 +371,7 @@ async function carregarQuestaoAleatoria() {
         console.error('Erro ao buscar questão:', err);
         container.innerHTML = `
             <div class="alerta erro">
-                <p>Erro ao carregar a questão do Supabase: ${err.message}</p>
+                <p>Erro ao carregar questão: ${err.message}</p>
             </div>
         `;
     }
@@ -450,19 +481,17 @@ async function responderQuestao() {
         }
     };
 
-    // 1. Grava no LocalStorage (Garantia de funcionamento imediato no painel)
     try {
         const historicoLocal = JSON.parse(localStorage.getItem('alfa_desempenho_local') || '[]');
         historicoLocal.push(novoRegistro);
         localStorage.setItem('alfa_desempenho_local', JSON.stringify(historicoLocal));
     } catch (errLocal) {
-        console.error('Erro ao guardar desempenho localmente:', errLocal);
+        console.error('Erro local:', errLocal);
     }
 
-    // 2. Grava no Supabase
     if (client) {
         try {
-            const { error: erroGravacao } = await client
+            await client
                 .from('desempenho')
                 .insert([{
                     questao_id: questaoAtual.id,
@@ -470,12 +499,8 @@ async function responderQuestao() {
                     correto: eCorreto,
                     tempo_resposta_segundos: tempoRespostaSegundos
                 }]);
-
-            if (erroGravacao) {
-                console.warn('Aviso Supabase ao gravar desempenho:', erroGravacao.message);
-            }
         } catch (err) {
-            console.error('Erro ao gravar no Supabase:', err);
+            console.error('Erro no Supabase:', err);
         }
     }
 
@@ -494,13 +519,13 @@ async function responderQuestao() {
     if (eCorreto) {
         feedbackDiv.innerHTML = `
             <div class="alerta sucesso">
-                <strong>Parabéns! Resposta Correta.</strong> (Alternativa ${altSelecionada.letra}) — Tempo de resolução: ${tempoRespostaSegundos}s
+                <strong>Parabéns! Resposta Correta.</strong> (Alternativa ${altSelecionada.letra}) — Tempo: ${tempoRespostaSegundos}s
             </div>
         `;
     } else {
         feedbackDiv.innerHTML = `
             <div class="alerta erro">
-                <strong>Resposta Incorreta!</strong> A alternativa correta é a <strong>${altCorreta ? altCorreta.letra : 'C'}</strong>. — Tempo de resolução: ${tempoRespostaSegundos}s
+                <strong>Resposta Incorreta!</strong> A alternativa correta é a <strong>${altCorreta ? altCorreta.letra : 'C'}</strong>. — Tempo: ${tempoRespostaSegundos}s
             </div>
         `;
     }
