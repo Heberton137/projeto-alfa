@@ -1,5 +1,5 @@
 // ============================================================
-// PROJETO ALFA — LÓGICA COMPLETA v8 (DASHBOARD, SIMULADO & CADERNO DE ERROS)
+// PROJETO ALFA — LÓGICA COMPLETA v9 (ANALYTICS SEGMENTADO & MODO SIMULADO)
 // ============================================================
 
 const SUPABASE_URL = 'https://maqnmxskvoccaxfoyojj.supabase.co';
@@ -23,7 +23,7 @@ let cronometroIntervalo = null;
 let segundosDecorridos = 0;
 
 // INSTÂNCIAS DOS GRÁFICOS CHART.JS
-let chartGeralInstance = null;
+let chartComparativoInstance = null;
 let chartDisciplinasInstance = null;
 
 // ESTADO DO MODO SIMULADO
@@ -51,13 +51,22 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ============================================================
-// DASHBOARD DE DESEMPENHO E RENDERIZAÇÃO DE GRÁFICOS (index.html)
+// DASHBOARD DE DESEMPENHO E ANALYTICS SEGMENTADO (index.html)
 // ============================================================
 
 async function carregarMetricasDashboard() {
-    const elTotal = document.getElementById('stat-total');
-    const elAcerto = document.getElementById('stat-acerto');
-    const elTempo = document.getElementById('stat-tempo');
+    const elTotalGeral = document.getElementById('stat-total');
+    const elAcertoGeral = document.getElementById('stat-acerto');
+    const elTempoGeral = document.getElementById('stat-tempo');
+
+    const elTreinoTotal = document.getElementById('stat-treino-total');
+    const elTreinoAcerto = document.getElementById('stat-treino-acerto');
+    const elTreinoTempo = document.getElementById('stat-treino-tempo');
+
+    const elSimuladoTotal = document.getElementById('stat-simulado-total');
+    const elSimuladoAcerto = document.getElementById('stat-simulado-acerto');
+    const elSimuladoQtd = document.getElementById('stat-simulado-qtd');
+
     const containerDisciplinas = document.getElementById('container-disciplinas-dashboard');
 
     const client = getSupabaseClient();
@@ -70,6 +79,8 @@ async function carregarMetricasDashboard() {
                 .select(`
                     correto, 
                     tempo_resposta_segundos,
+                    origem,
+                    sessao_id,
                     questoes (
                         disciplina_id,
                         disciplinas ( id, nome )
@@ -96,9 +107,18 @@ async function carregarMetricasDashboard() {
         : registrosLocais;
 
     if (!registrosFinal || registrosFinal.length === 0) {
-        if (elTotal) elTotal.innerText = '0';
-        if (elAcerto) elAcerto.innerText = '0%';
-        if (elTempo) elTempo.innerText = '0s';
+        if (elTotalGeral) elTotalGeral.innerText = '0';
+        if (elAcertoGeral) elAcertoGeral.innerText = '0%';
+        if (elTempoGeral) elTempoGeral.innerText = '0s';
+
+        if (elTreinoTotal) elTreinoTotal.innerText = '0';
+        if (elTreinoAcerto) elTreinoAcerto.innerText = '0%';
+        if (elTreinoTempo) elTreinoTempo.innerText = '0s';
+
+        if (elSimuladoTotal) elSimuladoTotal.innerText = '0';
+        if (elSimuladoAcerto) elSimuladoAcerto.innerText = '0%';
+        if (elSimuladoQtd) elSimuladoQtd.innerText = '0';
+
         if (containerDisciplinas) {
             containerDisciplinas.innerHTML = `
                 <div class="alerta aviso" style="grid-column: 1 / -1;">
@@ -106,30 +126,57 @@ async function carregarMetricasDashboard() {
                 </div>
             `;
         }
+        atualizarBannerReadiness(0, 0);
         return;
     }
 
-    const total = registrosFinal.length;
-    const acertos = registrosFinal.filter(r => r.correto === true || r.correto === 'true').length;
-    const erros = total - acertos;
-    const taxaAcerto = Math.round((acertos / total) * 100);
+    // SEGMENTAÇÃO DE DADOS: Treino vs Simulado
+    const registrosTreino = registrosFinal.filter(r => r.origem !== 'simulado');
+    const registrosSimulado = registrosFinal.filter(r => r.origem === 'simulado');
 
-    const tempoTotal = registrosFinal.reduce((acc, r) => acc + (Number(r.tempo_resposta_segundos) || 0), 0);
-    const tempoMedio = Math.round(tempoTotal / total);
+    // 1. Métricas de Treino Diário
+    const totalTreino = registrosTreino.length;
+    const acertosTreino = registrosTreino.filter(r => r.correto === true || r.correto === 'true').length;
+    const pctTreino = totalTreino > 0 ? Math.round((acertosTreino / totalTreino) * 100) : 0;
+    const tempoTotalTreino = registrosTreino.reduce((acc, r) => acc + (Number(r.tempo_resposta_segundos) || 0), 0);
+    const tempoMedioTreino = totalTreino > 0 ? Math.round(tempoTotalTreino / totalTreino) : 0;
 
-    if (elTotal) elTotal.innerText = total;
-    if (elAcerto) elAcerto.innerText = `${taxaAcerto}%`;
-    if (elTempo) elTempo.innerText = `${tempoMedio}s`;
+    // 2. Métricas do Modo Simulado
+    const totalSimulado = registrosSimulado.length;
+    const acertosSimulado = registrosSimulado.filter(r => r.correto === true || r.correto === 'true').length;
+    const pctSimulado = totalSimulado > 0 ? Math.round((acertosSimulado / totalSimulado) * 100) : 0;
 
+    // Contagem de Sessões Únicas de Simulado
+    const sessoesUnicas = new Set(registrosSimulado.map(r => r.sessao_id || 'default')).size;
+    const qtdSimulados = totalSimulado > 0 ? (sessoesUnicas > 0 ? sessoesUnicas : 1) : 0;
+
+    // 3. Métricas Consolidada Geral
+    const totalGeral = registrosFinal.length;
+    const acertosGeral = registrosFinal.filter(r => r.correto === true || r.correto === 'true').length;
+    const pctGeral = Math.round((acertosGeral / totalGeral) * 100);
+    const tempoTotalGeral = registrosFinal.reduce((acc, r) => acc + (Number(r.tempo_resposta_segundos) || 0), 0);
+    const tempoMedioGeral = Math.round(tempoTotalGeral / totalGeral);
+
+    // ATUALIZAÇÃO DOS ELEMENTOS DA UI
+    if (elTreinoTotal) elTreinoTotal.innerText = totalTreino;
+    if (elTreinoAcerto) elTreinoAcerto.innerText = `${pctTreino}%`;
+    if (elTreinoTempo) elTreinoTempo.innerText = `${tempoMedioTreino}s`;
+
+    if (elSimuladoTotal) elSimuladoTotal.innerText = totalSimulado;
+    if (elSimuladoAcerto) elSimuladoAcerto.innerText = `${pctSimulado}%`;
+    if (elSimuladoQtd) elSimuladoQtd.innerText = qtdSimulados;
+
+    if (elTotalGeral) elTotalGeral.innerText = totalGeral;
+    if (elAcertoGeral) elAcertoGeral.innerText = `${pctGeral}%`;
+    if (elTempoGeral) elTempoGeral.innerText = `${tempoMedioGeral}s`;
+
+    // Processamento por Disciplina
     const estatisticasPorDisciplina = {};
-
     registrosFinal.forEach(reg => {
         const nomeDisciplina = reg.questoes?.disciplinas?.nome || 'Disciplina Geral';
-        
         if (!estatisticasPorDisciplina[nomeDisciplina]) {
             estatisticasPorDisciplina[nomeDisciplina] = { total: 0, acertos: 0 };
         }
-
         estatisticasPorDisciplina[nomeDisciplina].total += 1;
         if (reg.correto === true || reg.correto === 'true') {
             estatisticasPorDisciplina[nomeDisciplina].acertos += 1;
@@ -138,7 +185,6 @@ async function carregarMetricasDashboard() {
 
     if (containerDisciplinas) {
         containerDisciplinas.innerHTML = '';
-        
         Object.keys(estatisticasPorDisciplina).forEach(nome => {
             const stat = estatisticasPorDisciplina[nome];
             const pct = Math.round((stat.acertos / stat.total) * 100);
@@ -158,33 +204,65 @@ async function carregarMetricasDashboard() {
         });
     }
 
-    renderizarGraficos(acertos, erros, estatisticasPorDisciplina);
+    atualizarBannerReadiness(pctSimulado, pctTreino);
+    renderizarGraficosSegmentados(pctTreino, pctSimulado, estatisticasPorDisciplina);
 }
 
-function renderizarGraficos(acertos, erros, estatisticasDisciplinas) {
+function atualizarBannerReadiness(pctSimulado, pctTreino) {
+    const badge = document.getElementById('readiness-level-badge');
+    const score = document.getElementById('readiness-score-val');
+    const desc = document.getElementById('readiness-description');
+
+    if (!score || !badge || !desc) return;
+
+    // Cálculo Ponderado de Prontidão: 70% peso no Simulado e 30% no Treino Diário
+    let readinessVal = pctSimulado > 0 
+        ? Math.round((pctSimulado * 0.7) + (pctTreino * 0.3))
+        : pctTreino;
+
+    score.innerText = `${readinessVal}%`;
+
+    if (readinessVal >= 80) {
+        badge.innerText = 'Excelente — Nível Competitivo';
+        badge.style.color = '#4ade80';
+        desc.innerText = 'Seu desempenho em simulados indica altíssima competitividade para a vaga de Auditor!';
+    } else if (readinessVal >= 65) {
+        badge.innerText = 'Bom — Fase de Ajustes';
+        badge.style.color = '#facc15';
+        desc.innerText = 'Você possui boa base. Aumente a frequência de simulados para dominar a gestão do tempo.';
+    } else {
+        badge.innerText = 'Atenção — Reforçar Base';
+        badge.style.color = '#f87171';
+        desc.innerText = 'Foque no Caderno de Erros e na revisão teórica dos assuntos de menor rendimento.';
+    }
+}
+
+function renderizarGraficosSegmentados(pctTreino, pctSimulado, estatisticasDisciplinas) {
     if (typeof Chart === 'undefined') return;
 
-    const ctxGeral = document.getElementById('chart-geral')?.getContext('2d');
-    if (ctxGeral) {
-        if (chartGeralInstance) chartGeralInstance.destroy();
+    const ctxComparativo = document.getElementById('chart-comparativo')?.getContext('2d');
+    if (ctxComparativo) {
+        if (chartComparativoInstance) chartComparativoInstance.destroy();
 
-        chartGeralInstance = new Chart(ctxGeral, {
-            type: 'doughnut',
+        chartComparativoInstance = new Chart(ctxComparativo, {
+            type: 'bar',
             data: {
-                labels: ['Acertos', 'Erros'],
+                labels: ['Treino Diário', 'Modo Simulado'],
                 datasets: [{
-                    data: [acertos, erros],
-                    backgroundColor: ['#16a34a', '#dc2626'],
-                    borderWidth: 2,
-                    borderColor: '#ffffff'
+                    label: 'Aproveitamento (%)',
+                    data: [pctTreino, pctSimulado],
+                    backgroundColor: ['#2563eb', '#d97706'],
+                    borderRadius: 8,
+                    barThickness: 40
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: {
-                    legend: { position: 'bottom' }
-                }
+                scales: {
+                    y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } }
+                },
+                plugins: { legend: { display: false } }
             }
         });
     }
@@ -214,15 +292,9 @@ function renderizarGraficos(acertos, erros, estatisticasDisciplinas) {
                 responsive: true,
                 maintainAspectRatio: false,
                 scales: {
-                    y: {
-                        beginAtZero: true,
-                        max: 100,
-                        ticks: { callback: v => v + '%' }
-                    }
+                    y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } }
                 },
-                plugins: {
-                    legend: { display: false }
-                }
+                plugins: { legend: { display: false } }
             }
         });
     }
@@ -342,12 +414,7 @@ async function carregarQuestaoAleatoria() {
 
     const client = getSupabaseClient();
     if (!client) {
-        container.innerHTML = `
-            <div class="alerta erro">
-                <h3>Erro de Inicialização</h3>
-                <p>Não foi possível ligar ao servidor.</p>
-            </div>
-        `;
+        container.innerHTML = `<div class="alerta erro"><h3>Erro ao conectar com a base.</h3></div>`;
         return;
     }
 
@@ -379,12 +446,7 @@ async function carregarQuestaoAleatoria() {
         if (error) throw error;
 
         if (!questoes || questoes.length === 0) {
-            container.innerHTML = `
-                <div class="alerta aviso">
-                    <h3>Nenhuma questão encontrada</h3>
-                    <p>Não existem questões cadastradas para os filtros selecionados.</p>
-                </div>
-            `;
+            container.innerHTML = `<div class="alerta aviso"><h3>Nenhuma questão encontrada com estes filtros.</h3></div>`;
             return;
         }
 
@@ -403,16 +465,7 @@ async function carregarQuestaoAleatoria() {
         }
 
         if (questoesFiltradas.length === 0) {
-            const mensagemStatus = statusFiltro === 'ineditas' 
-                ? 'Já respondeu a todas as questões disponíveis nestes filtros!' 
-                : 'Não existem questões incorretas no seu Caderno de Erros para os filtros selecionados.';
-
-            container.innerHTML = `
-                <div class="alerta aviso">
-                    <h3>Sem questões disponíveis no status selecionado</h3>
-                    <p>${mensagemStatus}</p>
-                </div>
-            `;
+            container.innerHTML = `<div class="alerta aviso"><h3>Sem questões para o status selecionado.</h3></div>`;
             return;
         }
 
@@ -431,12 +484,7 @@ async function carregarQuestaoAleatoria() {
         iniciarCronometro();
 
     } catch (err) {
-        console.error('Erro ao buscar questão:', err);
-        container.innerHTML = `
-            <div class="alerta erro">
-                <p>Erro ao carregar questão: ${err.message}</p>
-            </div>
-        `;
+        console.error(err);
     }
 }
 
@@ -445,19 +493,16 @@ function renderizarQuestao(q) {
     const disciplinaNome = q.disciplinas?.nome || 'Geral';
     const assuntoNome = q.assuntos?.nome || 'Geral';
 
-    let htmlAlternativas = '';
-    if (q.alternativas && q.alternativas.length > 0) {
-        htmlAlternativas = q.alternativas.map(alt => `
-            <label class="opcao-alternativa" id="label-alt-${alt.id}">
-                <input type="radio" name="alternativa" value="${alt.id}" onchange="selecionarAlternativa('${alt.id}')">
-                <span class="letra">${alt.letra})</span>
-                <span class="texto">${alt.texto}</span>
-            </label>
-        `).join('');
-    }
+    let htmlAlternativas = (q.alternativas || []).map(alt => `
+        <label class="opcao-alternativa" id="label-alt-${alt.id}">
+            <input type="radio" name="alternativa" value="${alt.id}" onchange="selecionarAlternativa('${alt.id}')">
+            <span class="letra">${alt.letra})</span>
+            <span class="texto">${alt.texto}</span>
+        </label>
+    `).join('');
 
     const textoResolucao = q.resolucoes && q.resolucoes.length > 0 
-        ? (q.resolucoes[0].texto || 'Resolução disponível.').replace(/\n/g, '<br>')
+        ? q.resolucoes[0].texto.replace(/\n/g, '<br>')
         : 'Sem resolução cadastrada.';
 
     container.innerHTML = `
@@ -467,27 +512,16 @@ function renderizarQuestao(q) {
                 <span class="badge assunto">${assuntoNome}</span>
                 <span id="cronometro-display" class="badge tempo">⏱️ 00:00</span>
             </div>
-
-            <div class="enunciado-questao">
-                <p>${q.enunciado}</p>
-            </div>
-
-            <div class="lista-alternativas">
-                ${htmlAlternativas}
-            </div>
-
+            <div class="enunciado-questao"><p>${q.enunciado}</p></div>
+            <div class="lista-alternativas">${htmlAlternativas}</div>
             <div class="acoes-questao">
                 <button id="btn-responder" class="btn btn-primario" onclick="responderQuestao()" disabled>Responder</button>
                 <button id="btn-proxima" class="btn btn-secundario" onclick="carregarQuestaoAleatoria()" style="display: none;">Próxima Questão →</button>
             </div>
-
             <div id="feedback-resposta" class="feedback-container"></div>
-
             <div id="box-resolucao" class="box-resolucao" style="display: none;">
                 <h4>Resolução Comentada</h4>
-                <div class="texto-resolucao">
-                    ${textoResolucao}
-                </div>
+                <div class="texto-resolucao">${textoResolucao}</div>
             </div>
         </div>
     `;
@@ -513,24 +547,12 @@ async function responderQuestao() {
     const altCorreta = questaoAtual.alternativas.find(a => a.correta === true);
     const eCorreto = Boolean(altSelecionada?.correta);
 
-    const tempoRespostaSegundos = segundosDecorridos;
-
-    const feedbackDiv = document.getElementById('feedback-resposta');
-    const boxResolucao = document.getElementById('box-resolucao');
-    const btnResponder = document.getElementById('btn-responder');
-    const btnProxima = document.getElementById('btn-proxima');
-
-    document.querySelectorAll('input[name="alternativa"]').forEach(input => input.disabled = true);
-    if (btnResponder) {
-        btnResponder.disabled = true;
-        btnResponder.innerText = 'Gravando...';
-    }
-
     const novoRegistro = {
         questao_id: questaoAtual.id,
         alternativa_escolhida_id: alternativaSelecionadaId,
         correto: eCorreto,
-        tempo_resposta_segundos: tempoRespostaSegundos,
+        tempo_resposta_segundos: segundosDecorridos,
+        origem: 'questoes', // TAG DE REGISTRO
         questoes: {
             disciplina_id: questaoAtual.disciplinas?.id,
             disciplinas: {
@@ -544,56 +566,38 @@ async function responderQuestao() {
         const historicoLocal = JSON.parse(localStorage.getItem('alfa_desempenho_local') || '[]');
         historicoLocal.push(novoRegistro);
         localStorage.setItem('alfa_desempenho_local', JSON.stringify(historicoLocal));
-    } catch (errLocal) {
-        console.error('Erro local:', errLocal);
-    }
+    } catch (e) {}
 
     if (client) {
         try {
-            await client
-                .from('desempenho')
-                .insert([{
-                    questao_id: questaoAtual.id,
-                    alternativa_escolhida_id: alternativaSelecionadaId,
-                    correto: eCorreto,
-                    tempo_resposta_segundos: tempoRespostaSegundos
-                }]);
-        } catch (err) {
-            console.error('Erro no Supabase:', err);
-        }
+            await client.from('desempenho').insert([{
+                questao_id: questaoAtual.id,
+                alternativa_escolhida_id: alternativaSelecionadaId,
+                correto: eCorreto,
+                tempo_resposta_segundos: segundosDecorridos,
+                origem: 'questoes'
+            }]);
+        } catch (e) {}
     }
 
-    if (btnResponder) btnResponder.innerText = 'Respondido';
-    if (btnProxima) btnProxima.style.display = 'inline-block';
+    document.getElementById('btn-responder').innerText = 'Respondido';
+    document.getElementById('btn-proxima').style.display = 'inline-block';
 
     document.querySelectorAll('.opcao-alternativa').forEach(el => {
         const altId = el.id.replace('label-alt-', '');
-        if (altId === altCorreta?.id) {
-            el.classList.add('correta');
-        } else if (altId === alternativaSelecionadaId && !eCorreto) {
-            el.classList.add('incorreta');
-        }
+        if (altId === altCorreta?.id) el.classList.add('correta');
+        else if (altId === alternativaSelecionadaId && !eCorreto) el.classList.add('incorreta');
     });
 
-    if (eCorreto) {
-        feedbackDiv.innerHTML = `
-            <div class="alerta sucesso">
-                <strong>Parabéns! Resposta Correta.</strong> (Alternativa ${altSelecionada.letra}) — Tempo: ${tempoRespostaSegundos}s
-            </div>
-        `;
-    } else {
-        feedbackDiv.innerHTML = `
-            <div class="alerta erro">
-                <strong>Resposta Incorreta!</strong> A alternativa correta é a <strong>${altCorreta ? altCorreta.letra : 'C'}</strong>. — Tempo: ${tempoRespostaSegundos}s
-            </div>
-        `;
-    }
+    document.getElementById('feedback-resposta').innerHTML = eCorreto 
+        ? `<div class="alerta sucesso"><strong>Parabéns! Resposta Correta.</strong> — ${segundosDecorridos}s</div>`
+        : `<div class="alerta erro"><strong>Incorreta!</strong> Correta: <strong>${altCorreta?.letra}</strong> — ${segundosDecorridos}s</div>`;
 
-    if (boxResolucao) boxResolucao.style.display = 'block';
+    document.getElementById('box-resolucao').style.display = 'block';
 }
 
 // ============================================================
-// MÓDULO DE MODO SIMULADO
+// MÓDULO DE MODO SIMULADO (SISTEMA COM SESSÃO E ORIGEM)
 // ============================================================
 
 async function carregarFiltrosSimulado() {
@@ -604,22 +608,12 @@ async function carregarFiltrosSimulado() {
     if (!client) return;
 
     try {
-        const { data: disciplinas, error } = await client
-            .from('disciplinas')
-            .select('id, nome')
-            .order('nome');
-
-        if (error) throw error;
-
+        const { data: disciplinas } = await client.from('disciplinas').select('id, nome').order('nome');
         select.innerHTML = '<option value="">Todas as Disciplinas</option>';
         if (disciplinas) {
-            disciplinas.forEach(d => {
-                select.innerHTML += `<option value="${d.id}">${d.nome}</option>`;
-            });
+            disciplinas.forEach(d => select.innerHTML += `<option value="${d.id}">${d.nome}</option>`);
         }
-    } catch (e) {
-        console.error('Erro ao carregar disciplinas no simulado:', e);
-    }
+    } catch (e) {}
 }
 
 async function iniciarSimulado() {
@@ -664,7 +658,7 @@ async function iniciarSimulado() {
         renderizarQuestaoSimulado();
 
     } catch (err) {
-        console.error('Erro ao iniciar simulado:', err);
+        console.error(err);
     }
 }
 
@@ -762,6 +756,8 @@ async function finalizarSimulado() {
     let totalAcertos = 0;
     let totalQuestao = simuladoEstado.questoes.length;
 
+    // Gerar ID único para esta sessão de simulado
+    const sessaoId = 'sim_' + Date.now();
     const registrosParaGravar = [];
 
     simuladoEstado.questoes.forEach(q => {
@@ -777,6 +773,8 @@ async function finalizarSimulado() {
                 alternativa_escolhida_id: escolheuId,
                 correto: eCorreto,
                 tempo_resposta_segundos: 0,
+                origem: 'simulado', // TAG DE REGISTRO
+                sessao_id: sessaoId,
                 questoes: {
                     disciplina_id: q.disciplinas?.id,
                     disciplinas: {
@@ -791,9 +789,7 @@ async function finalizarSimulado() {
     try {
         const historicoLocal = JSON.parse(localStorage.getItem('alfa_desempenho_local') || '[]');
         localStorage.setItem('alfa_desempenho_local', JSON.stringify([...historicoLocal, ...registrosParaGravar]));
-    } catch (e) {
-        console.error('Erro ao gravar simulado localmente:', e);
-    }
+    } catch (e) {}
 
     if (client && registrosParaGravar.length > 0) {
         try {
@@ -801,12 +797,12 @@ async function finalizarSimulado() {
                 questao_id: r.questao_id,
                 alternativa_escolhida_id: r.alternativa_escolhida_id,
                 correto: r.correto,
-                tempo_resposta_segundos: 0
+                tempo_resposta_segundos: 0,
+                origem: 'simulado',
+                sessao_id: sessaoId
             }));
             await client.from('desempenho').insert(ins);
-        } catch (e) {
-            console.error('Erro ao gravar simulado no Supabase:', e);
-        }
+        } catch (e) {}
     }
 
     const taxaAproveitamento = Math.round((totalAcertos / totalQuestao) * 100);
@@ -814,8 +810,8 @@ async function finalizarSimulado() {
     const relatorioContainer = document.getElementById('container-relatorio-simulado');
     relatorioContainer.innerHTML = `
         <div class="card-questao" style="text-align: center;">
-            <h3 style="font-size: 2rem; color: #1e3a8a; margin-bottom: 0.5rem;">Aproveitamento: ${taxaAproveitamento}%</h3>
-            <p style="font-size: 1.1rem; color: #475569; margin-bottom: 1.5rem;">Acertou <strong>${totalAcertos}</strong> de <strong>${totalQuestao}</strong> questões do simulado.</p>
+            <h3 style="font-size: 2.2rem; color: #1e3a8a; margin-bottom: 0.5rem;">Aproveitamento: ${taxaAproveitamento}%</h3>
+            <p style="font-size: 1.1rem; color: #475569; margin-bottom: 1.5rem;">Acertou <strong>${totalAcertos}</strong> de <strong>${totalQuestao}</strong> questões neste simulado.</p>
             
             <div style="display: flex; gap: 1rem; justify-content: center; margin-top: 1.5rem; flex-wrap: wrap;">
                 <a href="../index.html" class="btn btn-primario" style="background-color: #1e3a8a; color: #ffffff;">Ver no Dashboard Geral</a>
